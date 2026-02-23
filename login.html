@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Farmer Market</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-page">
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-logo">
+                <i class="fas fa-leaf"></i> Farmer Market
+            </div>
+            <a href="index.html" class="btn btn-secondary btn-sm">← Back</a>
+            <button class="theme-toggle" id="themeToggle">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Auth Container -->
+    <div class="auth-container">
+        <div class="auth-bg">
+            <div class="floating-shape shape-1"></div>
+            <div class="floating-shape shape-2"></div>
+        </div>
+
+        <div class="auth-card fade-in">
+            <div class="auth-header">
+                <h1>Welcome Back</h1>
+                <p>Log in to your Farmer Market account</p>
+            </div>
+
+            <form id="loginForm" class="auth-form">
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="email" name="email" placeholder="your@email.com" required>
+                    </div>
+                    <small id="emailError" class="error-message"></small>
+                </div>
+
+                <!-- Password -->
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" name="password" placeholder="••••••" required>
+                    </div>
+                    <small id="passwordError" class="error-message"></small>
+                </div>
+
+                <!-- Remember Me -->
+                <div class="form-check">
+                    <input type="checkbox" id="rememberMe" name="rememberMe">
+                    <label for="rememberMe">Remember me</label>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span>Sign In</span>
+                </button>
+
+                <!-- General Error -->
+                <small id="generalError" class="error-message" style="display: block; text-align: center; margin-top: 10px;"></small>
+            </form>
+
+            <!-- Sign Up Link -->
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="register.html">Sign up here</a></p>
+            </div>
+
+            <!-- Demo Credentials -->
+            <div class="demo-credentials">
+                <p class="demo-title">Demo Accounts:</p>
+                <div class="demo-item">
+                    <strong>Admin:</strong> admin@farm.com / admin123
+                </div>
+                <div class="demo-item">
+                    <strong>Farmer:</strong> farmer@farm.com / farmer123
+                </div>
+                <div class="demo-item">
+                    <strong>Buyer:</strong> buyer@farm.com / buyer123
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="js/script.js"></script>
+    <script>
+        // Login form handler
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // Clear errors
+            document.getElementById('emailError').textContent = '';
+            document.getElementById('passwordError').textContent = '';
+            document.getElementById('generalError').textContent = '';
+
+            // Validation
+            if (!email) {
+                document.getElementById('emailError').textContent = 'Email is required';
+                return;
+            }
+            if (!password) {
+                document.getElementById('passwordError').textContent = 'Password is required';
+                return;
+            }
+
+            // Call login function
+            loginUser(email, password);
+        });
+    </script>
+</body>
+</html>
