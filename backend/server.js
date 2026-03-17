@@ -22,10 +22,44 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Log all requests
+app.use((req, res, next) => {
+  console.log(`📨 [${new Date().toISOString()}] ${req.method} ${req.path} - Headers:`, req.headers);
+  console.log(`📨 Body:`, req.body);
+  next();
+});
+
 // Initialize database
 console.log('🔧 Initializing database...');
 initializeDatabase();
 seedDatabase();
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Farmer Market Backend API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      auth: {
+        register: 'POST /api/auth/register',
+        login: 'POST /api/auth/login',
+        profile: 'GET /api/auth/me'
+      },
+      products: {
+        list: 'GET /api/products',
+        create: 'POST /api/products'
+      },
+      orders: {
+        list: 'GET /api/orders',
+        create: 'POST /api/orders'
+      },
+      reviews: 'POST /api/reviews',
+      wishlist: 'GET|POST /api/wishlist'
+    }
+  });
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

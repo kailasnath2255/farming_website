@@ -4,12 +4,17 @@
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
+console.log('🔧 Frontend Config Loaded - API Base URL:', API_BASE_URL);
+
 // Store auth token in sessionStorage (cleared on browser close)
 const getAuthToken = () => sessionStorage.getItem('authToken');
-const setAuthToken = (token) => sessionStorage.setItem('authToken', token);
+const setAuthToken = (token) => {
+    sessionStorage.setItem('authToken', token);
+    console.log('✅ Auth token saved');
+};
 const clearAuthToken = () => sessionStorage.removeItem('authToken');
 
-// Universal API caller with error handling
+// Universal API caller with proper error handling
 async function apiCall(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     
@@ -25,26 +30,45 @@ async function apiCall(endpoint, options = {}) {
     }
     
     try {
+        console.log(`📡 API Call: ${options.method || 'GET'} ${url}`);
+        
         const response = await fetch(url, {
             method: options.method || 'GET',
             headers: headers,
             body: options.body ? JSON.stringify(options.body) : undefined,
-            credentials: 'omit' // CORS requests
+            credentials: 'same-origin'
         });
         
-        const data = await response.json();
+        console.log(`📍 Response Status: ${response.status}`);
         
-        if (!response.ok) {
+        // Try to parse JSON response
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            console.error('❌ Failed to parse JSON response:', e);
             throw {
                 status: response.status,
-                message: data.message || 'API Error',
+                message: `Server error: ${response.statusText}`,
+                error: e
+            };
+        }
+        
+        // If response not ok, throw error with the data
+        if (!response.ok) {
+            console.error('❌ API Error:', data);
+            throw {
+                status: response.status,
+                message: data.message || `Error: ${response.statusText}`,
                 error: data
             };
         }
         
+        console.log('✅ API Success:', data);
         return data;
+        
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('❌ API Call Failed:', error);
         throw error;
     }
 }
@@ -54,45 +78,125 @@ async function apiCall(endpoint, options = {}) {
 // ============================================
 
 async function loginUser(email, password) {
+    console.log('🔐 Login Attempt:', email);
+    console.log(`🔐 Calling API endpoint: /auth/login`);
+    
     try {
+        console.log('📡 About to call apiCall with endpoint /auth/login');
         const response = await apiCall('/auth/login', {
             method: 'POST',
             body: { email, password }
         });
         
-        if (response.success && response.data) {
-            // Extract token and user from response
-            const token = response.data.token || null;
-            const user = response.data.user || response.data;
+        console.log('📊 Full response object:', JSON.stringify(response, null, 2));
+        
+        // Extract data properly
+        if (response && response.success === true) {
+            console.log('✅ Login successful');
+            const userData = response.data;
             
-            if (token) {
-                setAuthToken(token);
+            console.log('📦 User data from response:', userData);
+            
+            // Store token
+            if (userData && userData.token) {
+                setAuthToken(userData.token);
+                console.log('🔑 Token stored:', userData.token.substring(0, 20) + '...');
             }
-            sessionStorage.setItem('currentUser', JSON.stringify(user));
-            return { success: true, user };
+            
+            // Store user data
+            if (userData) {
+                sessionStorage.setItem('currentUser', JSON.stringify(userData));
+                console.log('💾 User stored in sessionStorage');
+            }
+            
+            return { 
+                success: true, 
+                user: {
+                    id: userData.id,
+                    name: userData.name,
+                    email: userData.email,
+                    role: userData.role
+                }
+            };
         }
-        return { success: false, message: response.message || 'Login failed' };
+        
+        // If we get here, something went wrong
+        console.error('❌ Response not successful. Response:', response);
+        const errorMsg = response?.message || 'Login failed';
+        throw new Error(errorMsg);
+        
     } catch (error) {
-        console.error('Login error:', error);
+        console.error('❌ Login Error caught:', error);
+        console.error('❌ Error properties:', {
+            message: error?.message,
+            status: error?.status,
+            fullError: error
+        });
+        const errorMessage = error?.message || 'Network error. Please ensure backend server is running on http://localhost:5000';
         return { 
             success: false, 
-            message: error.message || 'Network error. Please check your connection and ensure the backend server is running on http://localhost:5000'
+            message: errorMessage
         };
     }
 }
 
 async function registerUser(name, email, password, role) {
     try {
+        console.log('📝 Registration Start - Email:', email, 'Role:', role);
+        
         const response = await apiCall('/auth/register', {
             method: 'POST',
             body: { name, email, password, role }
         });
         
-        if (response.success) {
-            return { success: true, message: 'Registration successful' };
+        console.log('✅ Registration Response:', response);
+        
+        if (response && response.success === true) {
+            console.log('✅ Registration successful');
+            const userData = response.data;
+            
+            console.log('📦 User data from response:', userData);
+            
+            // Store token if provided
+            if (userData && userData.token) {
+                setAuthToken(userData.token);
+                console.log('🔑 Token stored:', userData.token.substring(0, 20) + '...');
+            }
+            
+            // Store user data
+            if (userData) {
+                sessionStorage.setItem('currentUser', JSON.stringify(userData));
+                console.log('💾 User stored in sessionStorage');
+            }
+            
+            return { 
+                success: true, 
+                message: 'Registration successful',
+                user: {
+                    id: userData.id,
+                    name: userData.name,
+                    email: userData.email,
+                    role: userData.role
+                }
+            };
         }
+        
+        // If we get here, response wasn't successful
+        console.error('❌ Response not successful. Response:', response);
+        throw new Error(response?.message || 'Registration failed');
+        
     } catch (error) {
-        return { success: false, message: error.message };
+        console.error('❌ Registration Error:', error);
+        console.error('❌ Error properties:', {
+            message: error?.message,
+            status: error?.status,
+            fullError: error
+        });
+        const errorMessage = error?.message || 'Network error. Please ensure backend server is running on http://localhost:5000';
+        return { 
+            success: false, 
+            message: errorMessage
+        };
     }
 }
 
