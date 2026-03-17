@@ -23,9 +23,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve frontend static files (HTML, CSS, JS) from parent directory
-app.use(express.static(path.join(__dirname, '..')));
-
 // Log all requests
 app.use((req, res, next) => {
   console.log(`📨 [${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -37,7 +34,7 @@ console.log('🔧 Initializing database...');
 initializeDatabase();
 seedDatabase();
 
-// API Routes (BEFORE static files middleware so API takes priority)
+// ⭐ API Routes FIRST - must come before static files!
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
@@ -53,6 +50,10 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Serve frontend static files (HTML, CSS, JS) from parent directory
+// This must come AFTER API routes so API requests aren't intercepted
+app.use(express.static(path.join(__dirname, '..')));
 
 // Serve frontend pages
 app.get('/', (req, res) => {
