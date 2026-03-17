@@ -38,22 +38,39 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
+    <script src="frontend-config.js"></script>
     <script src="js/script.js"></script>
     <script>
-        function initWishlistPage() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser || currentUser.role !== 'buyer') {
-                window.location.href = 'login.html';
-                return;
-            }
-
-            renderWishlist();
+        // Core initialization
+        function loadTheme() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
         }
 
-        function renderWishlist() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
-            const products = JSON.parse(localStorage.getItem('products')) || [];
+        // Theme toggle setup
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTheme();
+            if (document.getElementById('themeToggle')) {
+                document.getElementById('themeToggle').addEventListener('click', function() {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                });
+            }
+        });
+
+        function initWishlistPage() {
+            redirectIfNotLoggedIn();
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+            if (currentUser) {
+                renderWishlist(currentUser);
+            }
+        }
+
+        function renderWishlist(currentUser) {
+            const wishlist = JSON.parse(sessionStorage.getItem('wishlist')) || [];
+            const products = JSON.parse(sessionStorage.getItem('products')) || [];
 
             const userWishlist = wishlist.filter(w => w.userId === currentUser.id);
             const wishlistProducts = userWishlist.map(w => products.find(p => p.id === w.productId)).filter(p => p);

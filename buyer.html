@@ -174,24 +174,25 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
+    <script src="frontend-config.js"></script>
     <script src="js/script.js"></script>
     <script>
         let filteredProducts = [];
 
         // Initialize buyer dashboard
-        function initBuyerDashboard() {
-            protectRoute('buyer');
+        async function initBuyerDashboard() {
+            redirectIfNotLoggedIn();
+            loadTheme();
             loadBuyerDashboard();
         }
 
-        function loadBuyerDashboard() {
+        async function loadBuyerDashboard() {
             renderProducts();
             updateCartCount();
         }
 
-        function renderProducts() {
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        async function renderProducts() {
+            const products = await getProducts();
             filteredProducts = [...products];
 
             const grid = document.getElementById('productsGrid');
@@ -201,23 +202,17 @@
             }
 
             grid.innerHTML = products.map(product => {
-                const inWishlist = isInWishlist(product.id, currentUser.id);
-                const avgRating = getAverageRating(product.id);
-                const starDisplay = avgRating > 0 ? `⭐ ${avgRating.toFixed(1)}` : 'No ratings yet';
-
                 return `
                     <div class="product-card">
                         <div class="product-image">
                             <img src="${product.image}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/250x250?text=No+Image'">
                             <span class="category-badge">${product.category}</span>
-                            ${product.verified ? '<span class="verified-badge"><i class="fas fa-check-circle"></i></span>' : ''}
-                            <button class="wishlist-btn ${inWishlist ? 'active' : ''}" onclick="toggleWishlist('${product.id}', '${currentUser.id}')">
+                            <button class="wishlist-btn" onclick="toggleWishlist('${product.id}')">
                                 <i class="fas fa-heart"></i>
                             </button>
                         </div>
                         <div class="product-info">
                             <h3>${product.name}</h3>
-                            <p class="rating-text">${starDisplay}</p>
                             <p class="description">${product.description || 'No description'}</p>
                             <div class="product-price">$${product.price.toFixed(2)}</div>
                             <button class="btn btn-primary btn-sm" onclick="addToCart('${product.id}', '${product.name}', ${product.price})">
@@ -234,11 +229,8 @@
             const category = document.getElementById('categoryFilter').value;
             const priceMin = parseFloat(document.getElementById('priceMin').value) || 0;
             const priceMax = parseFloat(document.getElementById('priceMax').value) || Infinity;
-            const sortBy = document.getElementById('sortBy').value;
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const products = JSON.parse(localStorage.getItem('products')) || [];
 
-            filteredProducts = products.filter(product => {
+            const filtered = filteredProducts.filter(product => {
                 const matchesSearch = product.name.toLowerCase().includes(searchTerm) || 
                                     product.description.toLowerCase().includes(searchTerm);
                 const matchesCategory = !category || product.category === category;
@@ -246,68 +238,50 @@
                 return matchesSearch && matchesCategory && matchesPrice;
             });
 
-            // Apply sorting
-            if (sortBy) {
-                filteredProducts = sortProducts(filteredProducts, sortBy);
-            }
-
             const grid = document.getElementById('productsGrid');
-            if (filteredProducts.length === 0) {
+            if (filtered.length === 0) {
                 grid.innerHTML = '<p class="empty-message">No products found</p>';
                 return;
             }
 
-            grid.innerHTML = filteredProducts.map(product => {
-                const inWishlist = isInWishlist(product.id, currentUser.id);
-                const avgRating = getAverageRating(product.id);
-                const starDisplay = avgRating > 0 ? `⭐ ${avgRating.toFixed(1)}` : 'No ratings yet';
-
-                return `
-                    <div class="product-card">
-                        <div class="product-image">
-                            <img src="${product.image}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/250x250?text=No+Image'">
-                            <span class="category-badge">${product.category}</span>
-                            ${product.verified ? '<span class="verified-badge"><i class="fas fa-check-circle"></i></span>' : ''}
-                            <button class="wishlist-btn ${inWishlist ? 'active' : ''}" onclick="toggleWishlist('${product.id}', '${currentUser.id}')">
-                                <i class="fas fa-heart"></i>
-                            </button>
-                        </div>
-                        <div class="product-info">
-                            <h3>${product.name}</h3>
-                            <p class="rating-text">${starDisplay}</p>
-                            <p class="description">${product.description || 'No description'}</p>
-                            <div class="product-price">$${product.price.toFixed(2)}</div>
-                            <button class="btn btn-primary btn-sm" onclick="addToCart('${product.id}', '${product.name}', ${product.price})">
-                                <i class="fas fa-plus"></i> Add to Cart
-                            </button>
-                        </div>
+            grid.innerHTML = filtered.map(product => `
+                <div class="product-card">
+                    <div class="product-image">
+                        <img src="${product.image}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/250x250?text=No+Image'">
+                        <span class="category-badge">${product.category}</span>
+                        <button class="wishlist-btn" onclick="toggleWishlist('${product.id}')">
+                            <i class="fas fa-heart"></i>
+                        </button>
                     </div>
-                `;
-            }).join('');
+                    <div class="product-info">
+                        <h3>${product.name}</h3>
+                        <p class="description">${product.description || 'No description'}</p>
+                        <div class="product-price">$${product.price.toFixed(2)}</div>
+                        <button class="btn btn-primary btn-sm" onclick="addToCart('${product.id}', '${product.name}', ${product.price})">
+                            <i class="fas fa-plus"></i> Add to Cart
+                        </button>
+                    </div>
+                </div>
+            `).join('');
         }
 
         function addToCart(productId, productName, price) {
-            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             
             const existingItem = cart.find(item => item.productId === productId);
             if (existingItem) {
                 existingItem.quantity += 1;
             } else {
-                cart.push({
-                    productId,
-                    productName,
-                    price,
-                    quantity: 1
-                });
+                cart.push({ productId, productName, price, quantity: 1 });
             }
 
-            localStorage.setItem('cart', JSON.stringify(cart));
+            sessionStorage.setItem('cart', JSON.stringify(cart));
             updateCartCount();
             showToast(`${productName} added to cart!`, 'success');
         }
 
         function updateCartCount() {
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             const count = cart.reduce((total, item) => total + item.quantity, 0);
             document.getElementById('cartCount').textContent = count;
         }
@@ -323,32 +297,22 @@
         }
 
         function renderCart() {
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            const discountInfo = JSON.parse(localStorage.getItem('discountInfo')) || null;
-
+            const cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             const cartItemsContainer = document.getElementById('cartItems');
 
             if (cart.length === 0) {
                 cartItemsContainer.innerHTML = '<p class="empty-message">Your cart is empty</p>';
                 document.getElementById('subtotal').textContent = '$0.00';
                 document.getElementById('total').textContent = '$0.00';
-                document.getElementById('discountRow').style.display = 'none';
                 return;
             }
 
             let subtotal = 0;
-
             cartItemsContainer.innerHTML = cart.map(item => {
-                const product = products.find(p => p.id === item.productId);
                 const itemTotal = item.price * item.quantity;
                 subtotal += itemTotal;
-
                 return `
                     <div class="cart-item">
-                        <div class="cart-item-image">
-                            <img src="${product ? product.image : 'https://via.placeholder.com/80x80'}" alt="${item.productName}" onerror="this.src='https://via.placeholder.com/80x80'">
-                        </div>
                         <div class="cart-item-details">
                             <h4>${item.productName}</h4>
                             <p>$${item.price.toFixed(2)} each</p>
@@ -358,9 +322,7 @@
                             <input type="number" value="${item.quantity}" readonly>
                             <button onclick="incrementQuantity('${item.productId}')">+</button>
                         </div>
-                        <div class="cart-item-total">
-                            $${itemTotal.toFixed(2)}
-                        </div>
+                        <div class="cart-item-total">$${itemTotal.toFixed(2)}</div>
                         <button class="btn-remove" onclick="removeFromCart('${item.productId}')">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -368,40 +330,23 @@
                 `;
             }).join('');
 
-            // Update totals with discount
-            const totalAmount = discountInfo ? (subtotal - discountInfo.amount) : subtotal;
-
             document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
-            
-            if (discountInfo && discountInfo.amount > 0) {
-                document.getElementById('discountRow').style.display = 'flex';
-                document.getElementById('discountAmount').textContent = '-$' + discountInfo.amount.toFixed(2);
-                document.getElementById('appliedCoupon').style.display = 'block';
-                document.getElementById('couponMessage').textContent = `Coupon "${discountInfo.code}" applied! You save $${discountInfo.amount.toFixed(2)}`;
-                document.getElementById('couponInput').value = discountInfo.code;
-                document.getElementById('removeCouponBtn').style.display = 'inline-block';
-            } else {
-                document.getElementById('discountRow').style.display = 'none';
-                document.getElementById('appliedCoupon').style.display = 'none';
-                document.getElementById('removeCouponBtn').style.display = 'none';
-            }
-
-            document.getElementById('total').textContent = '$' + totalAmount.toFixed(2);
+            document.getElementById('total').textContent = '$' + subtotal.toFixed(2);
         }
 
         function incrementQuantity(productId) {
-            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             const item = cart.find(i => i.productId === productId);
             if (item) {
                 item.quantity += 1;
-                localStorage.setItem('cart', JSON.stringify(cart));
+                sessionStorage.setItem('cart', JSON.stringify(cart));
                 updateCartCount();
                 renderCart();
             }
         }
 
         function decrementQuantity(productId) {
-            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             const item = cart.find(i => i.productId === productId);
             if (item) {
                 if (item.quantity > 1) {
@@ -409,57 +354,46 @@
                 } else {
                     cart = cart.filter(i => i.productId !== productId);
                 }
-                localStorage.setItem('cart', JSON.stringify(cart));
+                sessionStorage.setItem('cart', JSON.stringify(cart));
                 updateCartCount();
                 renderCart();
             }
         }
 
         function removeFromCart(productId) {
-            let cart = JSON.parse(localStorage.getItem('cart')) || [];
+            let cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             cart = cart.filter(i => i.productId !== productId);
-            localStorage.setItem('cart', JSON.stringify(cart));
+            sessionStorage.setItem('cart', JSON.stringify(cart));
             updateCartCount();
             renderCart();
         }
 
-        function placeOrder() {
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+        async function placeOrder() {
+            const cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             if (cart.length === 0) {
                 showToast('Cart is empty', 'error');
                 return;
             }
 
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
-            const products = JSON.parse(localStorage.getItem('products')) || [];
+            try {
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const order = await createOrder({
+                    items: cart,
+                    total: total
+                });
 
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-            const order = {
-                id: 'ord_' + Date.now(),
-                buyerId: currentUser.id,
-                buyerName: currentUser.name,
-                items: cart.reduce((sum, item) => sum + item.quantity, 0),
-                products: cart,
-                total,
-                status: 'pending',
-                createdAt: new Date().toISOString(),
-                farmerId: products.find(p => p.id === cart[0].productId)?.farmerId
-            };
-
-            orders.push(order);
-            localStorage.setItem('orders', JSON.stringify(orders));
-            localStorage.setItem('cart', JSON.stringify([]));
-
-            updateCartCount();
-            toggleCart();
-            showToast('Order placed successfully! Order ID: ' + order.id.substring(0, 8), 'success');
-            renderBuyerOrders();
+                sessionStorage.setItem('cart', JSON.stringify([]));
+                updateCartCount();
+                toggleCart();
+                showToast('Order placed successfully!', 'success');
+                renderBuyerOrders();
+            } catch (error) {
+                showToast('Failed to place order: ' + error.message, 'error');
+            }
         }
 
         function proceedToPayment() {
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
+            const cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             if (cart.length === 0) {
                 showToast('Cart is empty', 'error');
                 return;
@@ -467,42 +401,25 @@
             window.location.href = 'payment.html';
         }
 
-        function applyCouponToCart() {
-            const couponCode = document.getElementById('couponInput').value.trim();
-            if (!couponCode) {
-                showToast('Please enter a coupon code', 'error');
-                return;
+        async function toggleWishlist(productId) {
+            try {
+                await addToWishlist(productId);
+                showToast('Added to wishlist', 'success');
+            } catch (error) {
+                showToast('Failed to update wishlist', 'error');
             }
-
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
-            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-            applyCoupon(couponCode, subtotal);
-            renderCart();
         }
 
-        function toggleWishlist(productId, userId) {
-            if (isInWishlist(productId, userId)) {
-                removeFromWishlist(productId, userId);
-                showToast('Removed from wishlist', 'info');
-            } else {
-                addToWishlist(productId, userId);
-            }
-            filterProducts();
-        }
-
-        function renderBuyerOrders() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
-            const myOrders = orders.filter(o => o.buyerId === currentUser.id);
-
+        async function renderBuyerOrders() {
+            const orders = await getOrders({ role: 'buyer' });
             const list = document.getElementById('ordersList');
-            if (myOrders.length === 0) {
+            
+            if (!orders || orders.length === 0) {
                 list.innerHTML = '<p class="empty-message">No orders yet</p>';
                 return;
             }
 
-            list.innerHTML = myOrders.map(order => `
+            list.innerHTML = orders.map(order => `
                 <div class="order-card">
                     <div class="order-header">
                         <h3>Order #${order.id.substring(0, 8)}</h3>
@@ -511,7 +428,7 @@
                     <div class="order-details">
                         <p><strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
                         <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
-                        <p><strong>Items:</strong> ${order.items} unit(s)</p>
+                        <p><strong>Items:</strong> ${order.items.length} product(s)</p>
                     </div>
                 </div>
             `).join('');
@@ -538,6 +455,22 @@
                 document.getElementById('sidebar').classList.remove('active');
             }
         }
+
+        function loadTheme() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initBuyerDashboard);
+    </script>
 
         // Initialize
         document.addEventListener('DOMContentLoaded', initBuyerDashboard);

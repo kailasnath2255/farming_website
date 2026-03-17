@@ -4,7 +4,6 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
-    setupDummyUsers();
     loadTheme();
     setupEventListeners();
 });
@@ -33,110 +32,9 @@ function initializeApp() {
 }
 
 function setupDummyUsers() {
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    
-    // Check if dummy users already exist
-    if (users.length > 0) {
-        return;
-    }
-
-    const dummyUsers = [
-        {
-            id: 'user_admin_001',
-            name: 'Admin User',
-            email: 'admin@farm.com',
-            password: 'admin123',
-            role: 'admin',
-            status: 'approved',
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'user_farmer_001',
-            name: 'John Farmer',
-            email: 'farmer@farm.com',
-            password: 'farmer123',
-            role: 'farmer',
-            status: 'approved',
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'user_buyer_001',
-            name: 'Jane Buyer',
-            email: 'buyer@farm.com',
-            password: 'buyer123',
-            role: 'buyer',
-            status: 'approved',
-            createdAt: new Date().toISOString()
-        }
-    ];
-
-    localStorage.setItem('users', JSON.stringify(dummyUsers));
-
-    // Add some dummy products
-    const dummyProducts = [
-        {
-            id: 'prod_001',
-            name: 'Fresh Tomatoes',
-            price: 4.99,
-            category: 'vegetables',
-            image: 'https://images.unsplash.com/photo-1592841696179-0d41d5ce06cc?w=400&h=300&fit=crop',
-            description: 'Organic fresh tomatoes from local farm',
-            farmerId: 'user_farmer_001',
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'prod_002',
-            name: 'Organic Spinach',
-            price: 3.49,
-            category: 'vegetables',
-            image: 'https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?w=400&h=300&fit=crop',
-            description: 'Fresh organic spinach bunches',
-            farmerId: 'user_farmer_001',
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'prod_003',
-            name: 'Sweet Mangoes',
-            price: 5.99,
-            category: 'fruits',
-            image: 'https://images.unsplash.com/photo-1585518419759-87c21c1bd0e8?w=400&h=300&fit=crop',
-            description: 'Delicious sweet mangoes, perfect for summer',
-            farmerId: 'user_farmer_001',
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'prod_004',
-            name: 'Fresh Carrots',
-            price: 2.99,
-            category: 'vegetables',
-            image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=400&h=300&fit=crop',
-            description: 'Orange organic carrots',
-            farmerId: 'user_farmer_001',
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'prod_005',
-            name: 'Farm Fresh Milk',
-            price: 3.99,
-            category: 'dairy',
-            image: 'https://images.unsplash.com/photo-1550080876-f3d33de3b46a?w=400&h=300&fit=crop',
-            description: 'Pure farm fresh milk',
-            farmerId: 'user_farmer_001',
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'prod_006',
-            name: 'Wheat Grains',
-            price: 8.99,
-            category: 'grains',
-            image: 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=400&h=300&fit=crop',
-            description: 'Premium wheat grains for bread',
-            farmerId: 'user_farmer_001',
-            createdAt: new Date().toISOString()
-        }
-    ];
-
-    localStorage.setItem('products', JSON.stringify(dummyProducts));
+    // Deprecated: Using backend API instead of localStorage
+    // Demo users are now managed by the backend server
+    return;
 }
 
 function setupEventListeners() {

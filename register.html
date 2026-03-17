@@ -112,8 +112,24 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
+    <script src="frontend-config.js"></script>
     <script src="js/script.js"></script>
     <script>
+        // Load theme
+        function loadTheme() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        loadTheme();
+
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+
         // Set role from URL parameter if exists
         const urlParams = new URLSearchParams(window.location.search);
         const role = urlParams.get('role');
@@ -122,7 +138,7 @@
         }
 
         // Register form handler
-        document.getElementById('registerForm').addEventListener('submit', function(e) {
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const name = document.getElementById('name').value;
@@ -130,6 +146,7 @@
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             const role = document.getElementById('role').value;
+            const submitBtn = this.querySelector('button[type="submit"]');
 
             // Clear errors
             document.getElementById('nameError').textContent = '';
@@ -144,6 +161,10 @@
 
             if (!name) {
                 document.getElementById('nameError').textContent = 'Name is required';
+                isValid = false;
+            }
+            if (!name || name.length < 2) {
+                document.getElementById('nameError').textContent = 'Name must be at least 2 characters';
                 isValid = false;
             }
             if (!email) {
@@ -168,8 +189,30 @@
 
             if (!isValid) return;
 
-            // Call register function
-            registerUser(name, email, password, role);
+            // Disable button during submission
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span>Creating account...</span>';
+
+            try {
+                // Call register function
+                const result = await registerUser(name, email, password, role);
+                
+                if (result.success) {
+                    showToast('Registration successful! Redirecting to login...', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                } else {
+                    document.getElementById('generalError').textContent = result.message || 'Registration failed';
+                    showToast(result.message || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                document.getElementById('generalError').textContent = 'An error occurred. Please try again.';
+                showToast('Network error. Please check backend connection.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Create Account</span>';
+            }
         });
     </script>
 </body>

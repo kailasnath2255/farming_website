@@ -264,13 +264,36 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
+    <script src="frontend-config.js"></script>
+    <script src="frontend-config.js"></script>
     <script src="js/script.js"></script>
     <script>
+        // Core initialization
+        function loadTheme() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        // Theme toggle setup
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTheme();
+            if (document.getElementById('themeToggle')) {
+                document.getElementById('themeToggle').addEventListener('click', function() {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                });
+            }
+        });
+
         // Initialize farmer dashboard
         function initFarmerDashboard() {
-            protectRoute('farmer');
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            document.getElementById('farmerName').textContent = currentUser.name;
+            redirectIfNotLoggedIn();
+            const currentUser = sessionStorage.getItem('currentUser') ? JSON.parse(sessionStorage.getItem('currentUser')) : null;
+            if (currentUser && document.getElementById('farmerName')) {
+                document.getElementById('farmerName').textContent = currentUser.name;
+            }
             loadFarmerDashboard();
         }
 

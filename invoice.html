@@ -124,9 +124,30 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
+    <script src="frontend-config.js"></script>
     <script src="js/script.js"></script>
     <script>
+        // Core initialization
+        function loadTheme() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        // Theme toggle setup
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTheme();
+            if (document.getElementById('themeToggle')) {
+                document.getElementById('themeToggle').addEventListener('click', function() {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                });
+            }
+        });
+
         function initInvoicePage() {
+            redirectIfNotLoggedIn();
             const urlParams = new URLSearchParams(window.location.search);
             const orderId = urlParams.get('orderId');
 
@@ -138,7 +159,7 @@
                 return;
             }
 
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
+            const orders = JSON.parse(sessionStorage.getItem('orders')) || [];
             const order = orders.find(o => o.id === orderId);
 
             if (!order) {

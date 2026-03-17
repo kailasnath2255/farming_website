@@ -206,14 +206,35 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
+    <script src="frontend-config.js"></script>
+    <script src="frontend-config.js"></script>
     <script src="js/script.js"></script>
     <script>
         let filteredUsers = [];
         let filteredProductsAdmin = [];
 
+        // Core initialization
+        function loadTheme() {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        // Theme toggle setup
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTheme();
+            if (document.getElementById('themeToggle')) {
+                document.getElementById('themeToggle').addEventListener('click', function() {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                });
+            }
+        });
+
         // Initialize admin dashboard
         function initAdminDashboard() {
-            protectRoute('admin');
+            redirectIfNotLoggedIn();
             loadAdminDashboard();
         }
 
