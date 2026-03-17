@@ -127,10 +127,9 @@
             submitBtn.innerHTML = '<span>Signing in...</span>';
 
             try {
-                // Call login function
                 const result = await loginUser(email, password);
                 
-                if (result.success) {
+                if (result && result.success) {
                     showToast('Login successful!', 'success');
                     // Redirect based on role
                     const user = result.user;
@@ -142,12 +141,13 @@
                         window.location.href = 'buyer.html';
                     }
                 } else {
-                    document.getElementById('generalError').textContent = result.message || 'Login failed';
-                    showToast(result.message || 'Login failed', 'error');
+                    document.getElementById('generalError').textContent = result?.message || 'Login failed';
+                    showToast(result?.message || 'Login failed', 'error');
                 }
             } catch (error) {
+                console.error('Login error:', error);
                 document.getElementById('generalError').textContent = 'An error occurred. Please try again.';
-                showToast('Network error. Please check backend connection.', 'error');
+                showToast('Network error. Please check connection.', 'error');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<span>Sign In</span>';

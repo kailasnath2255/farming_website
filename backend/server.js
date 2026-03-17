@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 // Import database setup
@@ -22,10 +23,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve frontend static files (HTML, CSS, JS) from parent directory
+app.use(express.static(path.join(__dirname, '..')));
+
 // Log all requests
 app.use((req, res, next) => {
-  console.log(`📨 [${new Date().toISOString()}] ${req.method} ${req.path} - Headers:`, req.headers);
-  console.log(`📨 Body:`, req.body);
+  console.log(`📨 [${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
@@ -34,32 +37,13 @@ console.log('🔧 Initializing database...');
 initializeDatabase();
 seedDatabase();
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Farmer Market Backend API',
-    version: '1.0.0',
-    status: 'running',
-    endpoints: {
-      auth: {
-        register: 'POST /api/auth/register',
-        login: 'POST /api/auth/login',
-        profile: 'GET /api/auth/me'
-      },
-      products: {
-        list: 'GET /api/products',
-        create: 'POST /api/products'
-      },
-      orders: {
-        list: 'GET /api/orders',
-        create: 'POST /api/orders'
-      },
-      reviews: 'POST /api/reviews',
-      wishlist: 'GET|POST /api/wishlist'
-    }
-  });
-});
+// API Routes (BEFORE static files middleware so API takes priority)
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -70,13 +54,46 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/wishlist', wishlistRoutes);
-app.use('/api/admin', adminRoutes);
+// Serve frontend pages
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'login.html'));
+});
+
+app.get('/register', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'register.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'admin.html'));
+});
+
+app.get('/farmer', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'farmer.html'));
+});
+
+app.get('/buyer', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'buyer.html'));
+});
+
+app.get('/profile', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'profile.html'));
+});
+
+app.get('/wishlist', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'wishlist.html'));
+});
+
+app.get('/payment', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'payment.html'));
+});
+
+app.get('/invoice', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'invoice.html'));
+});
 
 // 404 handler
 app.use((req, res) => {
