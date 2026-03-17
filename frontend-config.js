@@ -31,6 +31,7 @@ async function apiCall(endpoint, options = {}) {
     
     try {
         console.log(`📡 API Call: ${options.method || 'GET'} ${url}`);
+        console.log(`📄 Request Body:`, options.body ? JSON.stringify(options.body) : 'None');
         
         const response = await fetch(url, {
             method: options.method || 'GET',
@@ -39,36 +40,40 @@ async function apiCall(endpoint, options = {}) {
             credentials: 'same-origin'
         });
         
-        console.log(`📍 Response Status: ${response.status}`);
+        console.log(`📍 Response Status: ${response.status} ${response.statusText}`);
         
-        // Try to parse JSON response
+        // Always try to parse as JSON
         let data;
-        try {
-            data = await response.json();
-        } catch (e) {
-            console.error('❌ Failed to parse JSON response:', e);
-            throw {
-                status: response.status,
-                message: `Server error: ${response.statusText}`,
-                error: e
-            };
+        const contentType = response.headers.get('content-type');
+        console.log(`📋 Content-Type: ${contentType}`);
+        
+        if (contentType && contentType.includes('application/json')) {
+            try {
+                data = await response.json();
+                console.log('✅ Response JSON parsed:', JSON.stringify(data, null, 2));
+            } catch (parseError) {
+                console.error('❌ JSON Parse Error:', parseError);
+                console.log('📝 Raw response text:', await response.text());
+                throw new Error(`Failed to parse response as JSON: ${parseError.message}`);
+            }
+        } else {
+            const text = await response.text();
+            console.log('⚠️ Response is not JSON, received:', text);
+            data = { success: false, message: `Invalid response type. Expected JSON, got ${contentType}`, raw: text };
         }
         
-        // If response not ok, throw error with the data
+        // Check if HTTP response was successful
         if (!response.ok) {
-            console.error('❌ API Error:', data);
-            throw {
-                status: response.status,
-                message: data.message || `Error: ${response.statusText}`,
-                error: data
-            };
+            console.error('❌ HTTP Error:', response.status, data);
+            const errorMessage = data?.message || `HTTP ${response.status}: ${response.statusText}`;
+            throw new Error(errorMessage);
         }
         
-        console.log('✅ API Success:', data);
+        console.log('✅ API Success');
         return data;
         
     } catch (error) {
-        console.error('❌ API Call Failed:', error);
+        console.error('❌ API Call Exception:', error);
         throw error;
     }
 }
@@ -78,38 +83,48 @@ async function apiCall(endpoint, options = {}) {
 // ============================================
 
 async function loginUser(email, password) {
-    console.log('🔐 Login Attempt:', email);
-    console.log(`🔐 Calling API endpoint: /auth/login`);
+    console.log('========================================');
+    console.log('🔐 LOGIN PROCESS STARTED');
+    console.log('========================================');
+    console.log('📧 Email:', email);
     
     try {
-        console.log('📡 About to call apiCall with endpoint /auth/login');
+        console.log('\n1️⃣ Calling API endpoint: POST /auth/login');
         const response = await apiCall('/auth/login', {
             method: 'POST',
             body: { email, password }
         });
         
-        console.log('📊 Full response object:', JSON.stringify(response, null, 2));
+        console.log('\n2️⃣ Response received from apiCall');
+        console.log('📦 Response object:', response);
+        console.log('📊 Response.success:', response?.success);
+        console.log('📊 Response.data:', response?.data);
         
-        // Extract data properly
-        if (response && response.success === true) {
-            console.log('✅ Login successful');
+        // Check if login was successful
+        if (response && response.success === true && response.data) {
+            console.log('\n3️⃣ Login successful, extracting user data');
             const userData = response.data;
             
-            console.log('📦 User data from response:', userData);
+            console.log('👤 User ID:', userData.id);
+            console.log('👤 User Name:', userData.name);
+            console.log('👤 User Email:', userData.email);
+            console.log('👤 User Role:', userData.role);
+            console.log('🔑 Has Token:', !!userData.token);
             
             // Store token
-            if (userData && userData.token) {
+            if (userData.token) {
+                console.log('\n4️⃣ Storing auth token');
                 setAuthToken(userData.token);
-                console.log('🔑 Token stored:', userData.token.substring(0, 20) + '...');
+                console.log('✅ Token stored successfully');
             }
             
-            // Store user data
-            if (userData) {
-                sessionStorage.setItem('currentUser', JSON.stringify(userData));
-                console.log('💾 User stored in sessionStorage');
-            }
+            // Store user data in sessionStorage
+            console.log('\n5️⃣ Storing user data in sessionStorage');
+            sessionStorage.setItem('currentUser', JSON.stringify(userData));
+            console.log('✅ User data stored successfully');
             
-            return { 
+            console.log('\n6️⃣ Returning success response');
+            const result = { 
                 success: true, 
                 user: {
                     id: userData.id,
@@ -118,21 +133,25 @@ async function loginUser(email, password) {
                     role: userData.role
                 }
             };
+            console.log('✅ SUCCESS - Login returned:', result);
+            console.log('========================================\n');
+            return result;
         }
         
-        // If we get here, something went wrong
-        console.error('❌ Response not successful. Response:', response);
-        const errorMsg = response?.message || 'Login failed';
+        // Response was not successful
+        console.error('\n❌ Response indicates failure');
+        console.error('Response:', response);
+        const errorMsg = response?.message || 'Login failed - invalid response';
         throw new Error(errorMsg);
         
     } catch (error) {
-        console.error('❌ Login Error caught:', error);
-        console.error('❌ Error properties:', {
-            message: error?.message,
-            status: error?.status,
-            fullError: error
-        });
-        const errorMessage = error?.message || 'Network error. Please ensure backend server is running on http://localhost:5000';
+        console.error('\n❌ LOGIN ERROR - Exception caught');
+        console.error('❌ Error message:', error?.message);
+        console.error('❌ Error object:', error);
+        console.error('========================================\n');
+        
+        // Return formatted error for UI
+        const errorMessage = error?.message || 'An error occurred during login. Please check the console for details.';
         return { 
             success: false, 
             message: errorMessage
@@ -141,35 +160,50 @@ async function loginUser(email, password) {
 }
 
 async function registerUser(name, email, password, role) {
+    console.log('========================================');
+    console.log('📝 REGISTRATION PROCESS STARTED');
+    console.log('========================================');
+    console.log('👤 Name:', name);
+    console.log('📧 Email:', email);
+    console.log('👥 Role:', role);
+    
     try {
-        console.log('📝 Registration Start - Email:', email, 'Role:', role);
-        
+        console.log('\n1️⃣ Calling API endpoint: POST /auth/register');
         const response = await apiCall('/auth/register', {
             method: 'POST',
             body: { name, email, password, role }
         });
         
-        console.log('✅ Registration Response:', response);
+        console.log('\n2️⃣ Response received from apiCall');
+        console.log('📦 Response object:', response);
+        console.log('📊 Response.success:', response?.success);
+        console.log('📊 Response.data:', response?.data);
         
-        if (response && response.success === true) {
-            console.log('✅ Registration successful');
+        // Check if registration was successful
+        if (response && response.success === true && response.data) {
+            console.log('\n3️⃣ Registration successful, extracting user data');
             const userData = response.data;
             
-            console.log('📦 User data from response:', userData);
+            console.log('👤 User ID:', userData.id);
+            console.log('👤 User Name:', userData.name);
+            console.log('👤 User Email:', userData.email);
+            console.log('👤 User Role:', userData.role);
+            console.log('🔑 Has Token:', !!userData.token);
             
-            // Store token if provided
-            if (userData && userData.token) {
+            // Store token
+            if (userData.token) {
+                console.log('\n4️⃣ Storing auth token');
                 setAuthToken(userData.token);
-                console.log('🔑 Token stored:', userData.token.substring(0, 20) + '...');
+                console.log('✅ Token stored successfully');
             }
             
-            // Store user data
-            if (userData) {
-                sessionStorage.setItem('currentUser', JSON.stringify(userData));
-                console.log('💾 User stored in sessionStorage');
-            }
+            // Store user data in sessionStorage
+            console.log('\n5️⃣ Storing user data in sessionStorage');
+            sessionStorage.setItem('currentUser', JSON.stringify(userData));
+            console.log('✅ User data stored successfully');
             
-            return { 
+            console.log('\n6️⃣ Returning success response');
+            const result = { 
                 success: true, 
                 message: 'Registration successful',
                 user: {
@@ -179,20 +213,25 @@ async function registerUser(name, email, password, role) {
                     role: userData.role
                 }
             };
+            console.log('✅ SUCCESS - Registration returned:', result);
+            console.log('========================================\n');
+            return result;
         }
         
-        // If we get here, response wasn't successful
-        console.error('❌ Response not successful. Response:', response);
-        throw new Error(response?.message || 'Registration failed');
+        // Response was not successful
+        console.error('\n❌ Response indicates failure');
+        console.error('Response:', response);
+        const errorMsg = response?.message || 'Registration failed - invalid response';
+        throw new Error(errorMsg);
         
     } catch (error) {
-        console.error('❌ Registration Error:', error);
-        console.error('❌ Error properties:', {
-            message: error?.message,
-            status: error?.status,
-            fullError: error
-        });
-        const errorMessage = error?.message || 'Network error. Please ensure backend server is running on http://localhost:5000';
+        console.error('\n❌ REGISTRATION ERROR - Exception caught');
+        console.error('❌ Error message:', error?.message);
+        console.error('❌ Error object:', error);
+        console.error('========================================\n');
+        
+        // Return formatted error for UI
+        const errorMessage = error?.message || 'An error occurred during registration. Please check the console for details.';
         return { 
             success: false, 
             message: errorMessage
