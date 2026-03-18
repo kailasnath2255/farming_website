@@ -1,8 +1,20 @@
-# Farmer Market Backend - Quick Reference
+# Farmer Market Backend
 
 Express.js + SQLite backend for the Farmer Market platform.
 
-**⚠️ For complete API documentation, database schema, and integration guides, see MASTER_README.md in the root directory.**
+**📚 For complete documentation, see [README.md](../README.md) in the root directory.**
+
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start server
+npm start
+
+# Server runs at http://localhost:5000
+```
 
 ## Features
 
@@ -28,6 +40,46 @@ Express.js + SQLite backend for the Farmer Market platform.
 - Star-based product reviews
 - User ratings
 - Average rating calculation
+
+✅ **Admin Dashboard**
+- User management
+- Product approval system
+- Order monitoring
+- Platform statistics
+
+## Tech Stack
+- Node.js + Express.js
+- SQLite (better-sqlite3)
+- JWT Authentication
+- bcrypt Password Hashing
+
+## API Base URL
+```
+http://localhost:5000/api
+```
+
+## Environment Variables (.env)
+```
+PORT=5000
+JWT_SECRET=farmer-market-secret-key-2026
+NODE_ENV=development
+```
+
+## Project Structure
+```
+backend/
+├── config/
+│   └── database.js          # Database setup
+├── controllers/             # Business logic
+├── models/                  # Database models
+├── routes/                  # API endpoints
+├── middleware/              # Auth & validation
+├── server.js                # Express app entry
+└── package.json
+```
+
+For full documentation, API endpoints, and database schema, refer to the main [README.md](../README.md).
+
 - Review history
 
 ✅ **Wishlist System**
