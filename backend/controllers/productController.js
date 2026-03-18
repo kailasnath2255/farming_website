@@ -18,7 +18,8 @@ const productController = {
         parseFloat(price),
         category,
         image || '',
-        description || ''
+        description || '',
+        req.user.id
       );
 
       const product = ProductModel.findById(productId);

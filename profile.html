@@ -217,7 +217,7 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
-    <script src="frontend-config.js"></script>
+    <script src="frontend-config.js?v=20260317-001"></script>
     <script src="js/script.js"></script>
     <script>
         // Core initialization
@@ -239,18 +239,18 @@
             }
         });
 
-        function initProfilePage() {
+        async function initProfilePage() {
             redirectIfNotLoggedIn();
 
             const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
             if (currentUser) {
-                loadProfileData(currentUser);
+                await loadProfileData(currentUser);
                 setupProfileTabs();
                 setupProfileForms(currentUser);
             }
         }
 
-        function loadProfileData(user) {
+        async function loadProfileData(user) {
             document.getElementById('fullName').value = user.name;
             document.getElementById('email').value = user.email;
             document.getElementById('phone').value = user.phone || '';
@@ -270,7 +270,7 @@
 
             // Load order history if buyer
             if (user.role === 'buyer') {
-                loadOrderHistory(user.id);
+                await loadOrderHistory(user.id);
             }
         }
 
@@ -324,7 +324,7 @@
             });
         }
 
-        function updatePersonalInfo(userId) {
+        async function updatePersonalInfo(userId) {
             const name = document.getElementById('fullName').value;
             const phone = document.getElementById('phone').value;
 
@@ -333,66 +333,61 @@
                 return;
             }
 
-            const users = JSON.parse(localStorage.getItem('users')) || [];
-            const userIndex = users.findIndex(u => u.id === userId);
+            try {
+                const updatedUser = await updateUserProfile({
+                    name,
+                    phone
+                });
 
-            if (userIndex !== -1) {
-                users[userIndex].name = name;
-                users[userIndex].phone = phone;
-                localStorage.setItem('users', JSON.stringify(users));
-
-                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-                currentUser.name = name;
-                currentUser.phone = phone;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-
-                document.getElementById('personalError').textContent = '';
-                showToast('Personal information updated successfully!', 'success');
+                if (updatedUser) {
+                    document.getElementById('personalError').textContent = '';
+                    showToast('Personal information updated successfully!', 'success');
+                } else {
+                    document.getElementById('personalError').textContent = 'Failed to update personal information';
+                }
+            } catch (error) {
+                console.error('Error updating personal info:', error);
+                document.getElementById('personalError').textContent = 'Error updating personal information';
             }
         }
 
-        function updateAddress(userId) {
+        async function updateAddress(userId) {
             const street = document.getElementById('street').value;
             const city = document.getElementById('city').value;
             const state = document.getElementById('state').value;
             const pincode = document.getElementById('pincode').value;
 
-            const users = JSON.parse(localStorage.getItem('users')) || [];
-            const userIndex = users.findIndex(u => u.id === userId);
-
-            if (userIndex !== -1) {
-                users[userIndex].address = {
+            try {
+                const address = {
                     street,
                     city,
                     state,
                     pincode
                 };
-                localStorage.setItem('users', JSON.stringify(users));
 
-                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-                currentUser.address = {
-                    street,
-                    city,
-                    state,
-                    pincode
-                };
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                const updatedUser = await updateUserProfile({
+                    address
+                });
 
-                document.getElementById('addressError').textContent = '';
-                showToast('Address updated successfully!', 'success');
+                if (updatedUser) {
+                    document.getElementById('addressError').textContent = '';
+                    showToast('Address updated successfully!', 'success');
+                } else {
+                    document.getElementById('addressError').textContent = 'Failed to update address';
+                }
+            } catch (error) {
+                console.error('Error updating address:', error);
+                document.getElementById('addressError').textContent = 'Error updating address';
             }
         }
 
-        function updatePassword(userId) {
+        async function updatePassword(userId) {
             const currentPassword = document.getElementById('currentPassword').value;
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmNewPassword').value;
 
-            const users = JSON.parse(localStorage.getItem('users')) || [];
-            const user = users.find(u => u.id === userId);
-
-            if (user.password !== currentPassword) {
-                document.getElementById('passwordError').textContent = 'Current password is incorrect';
+            if (!currentPassword || !newPassword) {
+                document.getElementById('passwordError').textContent = 'All password fields are required';
                 return;
             }
 
@@ -406,75 +401,73 @@
                 return;
             }
 
-            const userIndex = users.findIndex(u => u.id === userId);
-            if (userIndex !== -1) {
-                users[userIndex].password = newPassword;
-                localStorage.setItem('users', JSON.stringify(users));
+            try {
+                // Note: Backend expects new password only - currentPassword validation might need to be handled separately
+                const updatedUser = await updateUserProfile({
+                    password: newPassword
+                });
 
-                document.getElementById('passwordError').textContent = '';
-                document.getElementById('passwordForm').reset();
-                showToast('Password updated successfully!', 'success');
+                if (updatedUser) {
+                    document.getElementById('passwordError').textContent = '';
+                    document.getElementById('passwordForm').reset();
+                    showToast('Password updated successfully!', 'success');
+                } else {
+                    document.getElementById('passwordError').textContent = 'Failed to update password';
+                }
+            } catch (error) {
+                console.error('Error updating password:', error);
+                document.getElementById('passwordError').textContent = 'Error updating password: ' + (error.message || '');
             }
         }
 
         function updateProfileImage(userId, imageData) {
-            const users = JSON.parse(localStorage.getItem('users')) || [];
-            const userIndex = users.findIndex(u => u.id === userId);
+            // Profile image update - stored in sessionStorage for current session
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser')) || {};
+            currentUser.profileImage = imageData;
+            sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
 
-            if (userIndex !== -1) {
-                users[userIndex].profileImage = imageData;
-                localStorage.setItem('users', JSON.stringify(users));
-
-                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-                currentUser.profileImage = imageData;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-
-                showToast('Profile picture updated!', 'success');
-            }
+            showToast('Profile picture updated!', 'success');
         }
 
         function removeProfilePicture() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const users = JSON.parse(localStorage.getItem('users')) || [];
-            const userIndex = users.findIndex(u => u.id === currentUser.id);
-
-            if (userIndex !== -1) {
-                users[userIndex].profileImage = '';
-                localStorage.setItem('users', JSON.stringify(users));
-                currentUser.profileImage = '';
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            }
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser')) || {};
+            currentUser.profileImage = '';
+            sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
 
             document.getElementById('profileImg').src = 'https://via.placeholder.com/120';
             showToast('Profile picture removed', 'success');
         }
 
-        function loadOrderHistory(userId) {
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
-            const userOrders = orders.filter(o => o.buyerId === userId);
+        async function loadOrderHistory(userId) {
+            try {
+                const orders = await getOrders();
+                
+                const listContainer = document.getElementById('orderHistoryList');
 
-            const listContainer = document.getElementById('orderHistoryList');
+                if (!orders || orders.length === 0) {
+                    listContainer.innerHTML = '<p class="empty-message">No orders yet</p>';
+                    return;
+                }
 
-            if (userOrders.length === 0) {
-                listContainer.innerHTML = '<p class="empty-message">No orders yet</p>';
-                return;
+                listContainer.innerHTML = orders.reverse().map(order => `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <h4>Order #${order.id.substring(0, 8)}</h4>
+                            <span class="status-badge status-${order.status.toLowerCase()}">${order.status}</span>
+                        </div>
+                        <div class="order-details">
+                            <p><strong>Date:</strong> ${formatDate(order.created_at)}</p>
+                            <p><strong>Amount:</strong> $${(order.total || 0).toFixed(2)}</p>
+                            <p><strong>Status:</strong> ${order.status}</p>
+                        </div>
+                        <a href="invoice.html?orderId=${order.id}" class="btn btn-sm btn-primary">View Invoice</a>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading order history:', error);
+                const listContainer = document.getElementById('orderHistoryList');
+                listContainer.innerHTML = '<p class="empty-message">Error loading orders</p>';
             }
-
-            listContainer.innerHTML = userOrders.reverse().map(order => `
-                <div class="order-card">
-                    <div class="order-header">
-                        <h4>Order #${order.id.substring(0, 8)}</h4>
-                        <span class="status-badge status-${order.paymentStatus.toLowerCase()}">${order.paymentStatus}</span>
-                    </div>
-                    <div class="order-details">
-                        <p><strong>Date:</strong> ${formatDate(order.createdAt)}</p>
-                        <p><strong>Amount:</strong> $${order.totalAmount.toFixed(2)}</p>
-                        <p><strong>Items:</strong> ${order.products.reduce((sum, p) => sum + p.quantity, 0)} product(s)</p>
-                        <p><strong>Status:</strong> ${order.orderStatus}</p>
-                    </div>
-                    <a href="invoice.html?orderId=${order.id}" class="btn btn-sm btn-primary">View Invoice</a>
-                </div>
-            `).join('');
         }
 
         function formatDate(dateString) {

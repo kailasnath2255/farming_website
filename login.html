@@ -51,7 +51,7 @@
                     <label for="password">Password</label>
                     <div class="input-group">
                         <i class="fas fa-lock"></i>
-                        <input type="password" id="password" name="password" placeholder="••••••" required>
+                        <input type="password" id="password" name="password" placeholder="••••••" required autocomplete="current-password">
                     </div>
                     <small id="passwordError" class="error-message"></small>
                 </div>
@@ -81,8 +81,8 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
-    <script src="frontend-config.js"></script>
-    <script src="js/script.js"></script>
+    <script src="frontend-config.js?v=20260317-001"></script>
+    <script src="js/script.js?v=20260317-001"></script>
     <script>
         // Load theme
         function loadTheme() {
@@ -145,9 +145,12 @@
                     showToast(result?.message || 'Login failed', 'error');
                 }
             } catch (error) {
-                console.error('Login error:', error);
+                console.error('❌ LOGIN ERROR:');
+                console.error('   Message:', error.message);
+                console.error('   Stack:', error.stack);
+                console.error('   Full Error:', error);
                 document.getElementById('generalError').textContent = 'An error occurred. Please try again.';
-                showToast('Network error. Please check connection.', 'error');
+                showToast(`Network error: ${error.message || 'Please check connection'}`, 'error');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<span>Sign In</span>';

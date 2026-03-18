@@ -51,6 +51,21 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Cache control middleware for static files
+// Prevent browser caching of HTML, JS, CSS files to ensure fresh content
+app.use((req, res, next) => {
+  // Don't cache HTML, JS, and JSON files
+  if (req.path.match(/\.(html|js|json|css|txt)$/i)) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  } else {
+    // Cache static assets (images, fonts) for 1 day
+    res.set('Cache-Control', 'public, max-age=86400');
+  }
+  next();
+});
+
 // Serve frontend static files (HTML, CSS, JS) from parent directory
 // This must come AFTER API routes so API requests aren't intercepted
 app.use(express.static(path.join(__dirname, '..')));

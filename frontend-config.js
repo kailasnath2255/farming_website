@@ -31,7 +31,8 @@ async function apiCall(endpoint, options = {}) {
     }
     
     try {
-        console.log(`📡 API: ${options.method || 'GET'} ${url}`);
+        console.log(`📡 API Call: ${options.method || 'GET'} ${url}`);
+        console.log(`📌 Full URL: http://localhost:5000${endpoint}`);
         
         const response = await fetch(url, {
             method: options.method || 'GET',
@@ -40,7 +41,7 @@ async function apiCall(endpoint, options = {}) {
             credentials: 'include'
         });
         
-        console.log(`📍 Status: ${response.status}`);
+        console.log(`📍 HTTP Status: ${response.status}`);
         
         // Parse response
         let data;
@@ -48,6 +49,7 @@ async function apiCall(endpoint, options = {}) {
         
         if (contentType && contentType.includes('application/json')) {
             data = await response.json();
+            console.log(`📦 Response Data:`, data);
         } else {
             const text = await response.text();
             data = { success: false, message: `Invalid response type: ${contentType}`, raw: text };
@@ -60,11 +62,13 @@ async function apiCall(endpoint, options = {}) {
             throw new Error(errorMessage);
         }
         
-        console.log(`✅ Success:`, data?.success);
+        console.log(`✅ API Success: ${data?.success}`);
         return data;
         
     } catch (error) {
-        console.error(`❌ API Error:`, error.message);
+        console.error(`❌ API Error (${url}):`, error);
+        console.error(`❌ Error Message:`, error.message);
+        console.error(`❌ Error Stack:`, error.stack);
         throw error;
     }
 }
@@ -116,35 +120,51 @@ async function loginUser(email, password) {
         console.error('Login error:', error.message);
         return { success: false, message: error.message || 'Login failed' };
     }
+    
+    // Absolute fallback - should never reach here but ensures we always return something
+    console.error('⚠️ CRITICAL: loginUser reached end without returning!');
+    return { success: false, message: 'Unexpected error in login function' };
 }
 
 async function registerUser(name, email, password, role) {
+    console.log('📝 registerUser called with:', {name, email, role});
+    
     try {
         if (!name || !email || !password || !role) {
+            console.warn('⚠️ Missing required fields');
             return { success: false, message: 'All fields are required' };
         }
         
+        console.log('📡 Calling apiCall for registration...');
         const response = await apiCall('/auth/register', {
             method: 'POST',
             body: { name, email, password, role }
         });
         
+        console.log('📦 registerUser received response:', response);
+        
         if (!response?.success) {
+            console.error('❌ API returned success: false');
             return { success: false, message: response?.message || 'Registration failed' };
         }
         
         const userData = response.data;
+        console.log('👤 User data:', userData);
+        
         if (!userData || !userData.id || !userData.email || !userData.role) {
-            return { success: false, message: 'Invalid server response' };
+            console.error('❌ Invalid user data in response:', userData);
+            return { success: false, message: 'Invalid server response - missing user data' };
         }
         
         // Store token if present
         if (userData.token) {
+            console.log('🔐 Storing auth token');
             setAuthToken(userData.token);
         }
         
         // Store user data
         sessionStorage.setItem('currentUser', JSON.stringify(userData));
+        console.log('✅ User registered successfully');
         
         return { 
             success: true,
@@ -158,9 +178,18 @@ async function registerUser(name, email, password, role) {
         };
         
     } catch (error) {
-        console.error('Registration error:', error.message);
-        return { success: false, message: error.message || 'Registration failed' };
+        console.error('❌ registerUser caught error:');
+        console.error('   Type:', error.name);
+        console.error('   Message:', error.message);
+        console.error('   Full error:', error);
+        
+        const errorMessage = error?.message || 'Registration failed';
+        return { success: false, message: `Error: ${errorMessage}` };
     }
+    
+    // Absolute fallback - should never reach here but ensures we always return something
+    console.error('⚠️ CRITICAL: registerUser reached end without returning!');
+    return { success: false, message: 'Unexpected error in registration function' };
 }
 
 async function getCurrentUser() {
@@ -181,6 +210,30 @@ async function getCurrentUser() {
         console.error('❌ getCurrentUser error:', error?.message);
         clearAuthToken();
         return null;
+    }
+}
+
+async function updateUserProfile(updates) {
+    try {
+        console.log('✏️ Updating user profile:', updates);
+        const response = await apiCall('/auth/profile', {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+        console.log('✅ Update profile response:', response);
+        
+        if (response && response.success && response.data) {
+            // Update sessionStorage with new user data
+            sessionStorage.setItem('currentUser', JSON.stringify(response.data));
+            console.log('✅ Profile updated successfully:', response.data);
+            return response.data;
+        } else {
+            console.warn('⚠️ Invalid updateUserProfile response');
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ updateUserProfile error:', error?.message);
+        throw error;
     }
 }
 
@@ -265,6 +318,49 @@ async function createProduct(productData) {
     }
 }
 
+async function updateProduct(productId, productData) {
+    try {
+        console.log('✏️ Updating product:', productId, productData);
+        const response = await apiCall(`/products/${productId}`, {
+            method: 'PUT',
+            body: productData
+        });
+        console.log('✅ Update product response:', response);
+        
+        if (response && response.data) {
+            console.log('✅ Product updated successfully');
+            return response.data;
+        } else {
+            console.warn('⚠️ Update response invalid:', response);
+            throw new Error(response?.message || 'Failed to update product');
+        }
+    } catch (error) {
+        console.error('❌ Failed to update product:', error?.message);
+        throw error;
+    }
+}
+
+async function deleteProduct(productId) {
+    try {
+        console.log('🗑️ Deleting product:', productId);
+        const response = await apiCall(`/products/${productId}`, {
+            method: 'DELETE'
+        });
+        console.log('✅ Delete product response:', response);
+        
+        if (response && response.success) {
+            console.log('✅ Product deleted successfully');
+            return true;
+        } else {
+            console.warn('⚠️ Delete response invalid:', response);
+            throw new Error(response?.message || 'Failed to delete product');
+        }
+    } catch (error) {
+        console.error('❌ Failed to delete product:', error?.message);
+        throw error;
+    }
+}
+
 // ============================================
 // ORDER ENDPOINTS
 // ============================================
@@ -338,10 +434,31 @@ async function createOrder(orderData) {
     }
 }
 
+async function getFarmerOrders() {
+    try {
+        console.log('📦 Fetching farmer orders...');
+        const response = await apiCall('/orders/farmer-orders');
+        console.log('✅ Farmer orders response:', response);
+        
+        if (response && Array.isArray(response.data)) {
+            return response.data;
+        } else if (response && Array.isArray(response)) {
+            return response;
+        } else if (response?.success && response.data) {
+            return Array.isArray(response.data) ? response.data : [];
+        } else {
+            return [];
+        }
+    } catch (error) {
+        console.error('❌ Failed to fetch farmer orders:', error?.message);
+        return [];
+    }
+}
+
 async function updateOrderStatus(orderId, status) {
     try {
         console.log('♻️ Updating order status:', orderId, status);
-        const response = await apiCall(`/orders/${orderId}`, {
+        const response = await apiCall(`/orders/${orderId}/status`, {
             method: 'PUT',
             body: { status }
         });
@@ -455,6 +572,119 @@ async function removeFromWishlist(productId) {
     } catch (error) {
         console.error('❌ Failed to remove from wishlist:', error?.message);
         throw error;
+    }
+}
+
+// ============================================
+// ADMIN ENDPOINTS
+// ============================================
+
+async function getAdminUsers() {
+    try {
+        console.log('👥 Fetching all users...');
+        const response = await apiCall('/admin/users');
+        console.log('✅ Users response:', response);
+        
+        if (response && response.data && Array.isArray(response.data)) {
+            return response.data;
+        } else if (response && Array.isArray(response.data)) {
+            return response.data;
+        } else {
+            console.warn('⚠️ Users response invalid:', response);
+            return [];
+        }
+    } catch (error) {
+        console.error('❌ Failed to fetch users:', error?.message);
+        return [];
+    }
+}
+
+async function deleteAdminUser(userId) {
+    try {
+        console.log('🗑️ Deleting user:', userId);
+        const response = await apiCall(`/admin/users/${userId}`, {
+            method: 'DELETE'
+        });
+        console.log('✅ Delete user response:', response);
+        
+        if (response && response.success) {
+            return true;
+        } else {
+            throw new Error(response?.message || 'Failed to delete user');
+        }
+    } catch (error) {
+        console.error('❌ Failed to delete user:', error?.message);
+        throw error;
+    }
+}
+
+async function getAdminProducts() {
+    try {
+        console.log('📦 Fetching admin products...');
+        const response = await apiCall('/admin/products');
+        console.log('✅ Admin products response:', response);
+        
+        if (response && response.data && Array.isArray(response.data)) {
+            return response.data;
+        } else {
+            return [];
+        }
+    } catch (error) {
+        console.error('❌ Failed to fetch admin products:', error?.message);
+        return [];
+    }
+}
+
+async function deleteAdminProduct(productId) {
+    try {
+        console.log('🗑️ Deleting product:', productId);
+        const response = await apiCall(`/admin/products/${productId}`, {
+            method: 'DELETE'
+        });
+        console.log('✅ Delete product response:', response);
+        
+        if (response && response.success) {
+            return true;
+        } else {
+            throw new Error(response?.message || 'Failed to delete product');
+        }
+    } catch (error) {
+        console.error('❌ Failed to delete product:', error?.message);
+        throw error;
+    }
+}
+
+async function getAdminOrders() {
+    try {
+        console.log('📋 Fetching admin orders...');
+        const response = await apiCall('/admin/orders');
+        console.log('✅ Admin orders response:', response);
+        
+        if (response && response.data && Array.isArray(response.data)) {
+            return response.data;
+        } else {
+            return [];
+        }
+    } catch (error) {
+        console.error('❌ Failed to fetch admin orders:', error?.message);
+        return [];
+    }
+}
+
+async function getAdminAnalytics() {
+    try {
+        console.log('📊 Fetching analytics...');
+        const response = await apiCall('/admin/analytics');
+        console.log('✅ Analytics response:', response);
+        
+        if (response && response.data) {
+            return response.data;
+        } else {
+            return {};
+        }
+    } catch (error) {
+        console.error('❌ Failed to fetch analytics:', error?.message);
+        return {};
     }
 }
 

@@ -13,19 +13,8 @@ document.addEventListener('DOMContentLoaded', function() {
    ============================================ */
 
 function initializeApp() {
-    // Initialize localStorage if empty
-    if (!localStorage.getItem('users')) {
-        localStorage.setItem('users', JSON.stringify([]));
-    }
-    if (!localStorage.getItem('products')) {
-        localStorage.setItem('products', JSON.stringify([]));
-    }
-    if (!localStorage.getItem('orders')) {
-        localStorage.setItem('orders', JSON.stringify([]));
-    }
-    if (!localStorage.getItem('cart')) {
-        localStorage.setItem('cart', JSON.stringify([]));
-    }
+    // Old localStorage initialization is deprecated - backend API is now used
+    // Only initialize theme if not already set
     if (!localStorage.getItem('theme')) {
         localStorage.setItem('theme', 'light');
     }
@@ -75,6 +64,23 @@ function setupEventListeners() {
             e.target.style.display = 'none';
         }
     });
+
+    // Close sidebar when clicking menu items (mobile)
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth < 1024 && sidebar) {
+                sidebar.classList.remove('active');
+            }
+        });
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 1024 && sidebar) {
+            sidebar.classList.remove('active');
+        }
+    });
 }
 
 /* ============================================
@@ -114,68 +120,10 @@ function applyTheme(theme) {
    AUTHENTICATION FUNCTIONS
    ============================================ */
 
-function loginUser(email, password) {
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    const user = users.find(u => u.email === email && u.password === password);
+// These functions are now async and imported from frontend-config.js
+// Kept here as placeholders for backwards compatibility
+// DO NOT define them here - let frontend-config.js handle them
 
-    if (!user) {
-        document.getElementById('generalError').textContent = 'Invalid email or password';
-        return;
-    }
-
-    if (user.status === 'rejected') {
-        document.getElementById('generalError').textContent = 'Your account has been rejected';
-        return;
-    }
-
-    if (user.status === 'pending') {
-        document.getElementById('generalError').textContent = 'Your account is pending approval';
-        return;
-    }
-
-    // Login successful
-    localStorage.setItem('currentUser', JSON.stringify(user));
-    showToast('Login successful! Redirecting...', 'success');
-
-    setTimeout(() => {
-        if (user.role === 'admin') {
-            window.location.href = 'admin.html';
-        } else if (user.role === 'farmer') {
-            window.location.href = 'farmer.html';
-        } else if (user.role === 'buyer') {
-            window.location.href = 'buyer.html';
-        }
-    }, 800);
-}
-
-function registerUser(name, email, password, role) {
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-
-    // Check if email already exists
-    if (users.some(u => u.email === email)) {
-        document.getElementById('generalError').textContent = 'Email already registered';
-        return;
-    }
-
-    const newUser = {
-        id: 'user_' + Date.now(),
-        name,
-        email,
-        password,
-        role,
-        status: 'approved',
-        createdAt: new Date().toISOString()
-    };
-
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    showToast('Registration successful! Redirecting to login...', 'success');
-
-    setTimeout(() => {
-        window.location.href = 'login.html';
-    }, 800);
-}
 
 function logout() {
     localStorage.removeItem('currentUser');
@@ -250,45 +198,6 @@ function showLoader(show = true) {
         loader.style.display = 'none';
     }
 }
-
-/* ============================================
-   RESPONSIVE SIDEBAR
-   ============================================ */
-
-document.addEventListener('DOMContentLoaded', function() {
-    const hamburger = document.getElementById('hamburger');
-    const sidebar = document.getElementById('sidebar');
-    const closeSidebar = document.getElementById('closeSidebar');
-
-    if (hamburger && sidebar) {
-        hamburger.addEventListener('click', function() {
-            sidebar.classList.toggle('active');
-        });
-    }
-
-    if (closeSidebar && sidebar) {
-        closeSidebar.addEventListener('click', function() {
-            sidebar.classList.remove('active');
-        });
-    }
-
-    // Close sidebar when clicking menu items
-    const menuItems = document.querySelectorAll('.menu-item');
-    menuItems.forEach(item => {
-        item.addEventListener('click', function() {
-            if (window.innerWidth < 1024 && sidebar) {
-                sidebar.classList.remove('active');
-            }
-        });
-    });
-
-    // Handle window resize
-    window.addEventListener('resize', function() {
-        if (window.innerWidth > 1024 && sidebar) {
-            sidebar.classList.remove('active');
-        }
-    });
-});
 
 /* ============================================
    SMOOTH SCROLLING
@@ -390,9 +299,8 @@ function generateId(prefix = 'id') {
    ============================================ */
 
 // These are exported to be used inline in HTML
+// NOTE: loginUser and registerUser are now in frontend-config.js and imported there
 
-window.loginUser = loginUser;
-window.registerUser = registerUser;
 window.logout = logout;
 window.protectRoute = protectRoute;
 window.showToast = showToast;

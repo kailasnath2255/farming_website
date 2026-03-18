@@ -61,7 +61,7 @@
                     <label for="password">Password</label>
                     <div class="input-group">
                         <i class="fas fa-lock"></i>
-                        <input type="password" id="password" name="password" placeholder="••••••" required>
+                        <input type="password" id="password" name="password" placeholder="••••••" required autocomplete="new-password">
                     </div>
                     <small id="passwordError" class="error-message"></small>
                 </div>
@@ -71,7 +71,7 @@
                     <label for="confirmPassword">Confirm Password</label>
                     <div class="input-group">
                         <i class="fas fa-lock"></i>
-                        <input type="password" id="confirmPassword" name="confirmPassword" placeholder="••••••" required>
+                        <input type="password" id="confirmPassword" name="confirmPassword" placeholder="••••••" required autocomplete="new-password">
                     </div>
                     <small id="confirmError" class="error-message"></small>
                 </div>
@@ -112,8 +112,8 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
-    <script src="frontend-config.js"></script>
-    <script src="js/script.js"></script>
+    <script src="frontend-config.js?v=20260317-001"></script>
+    <script src="js/script.js?v=20260317-001"></script>
     <script>
         // Load theme
         function loadTheme() {
@@ -197,18 +197,35 @@
                 // Call register function
                 const result = await registerUser(name, email, password, role);
                 
+                console.log('📊 registerUser returned:', result);
+                
+                if (!result) {
+                    console.error('❌ registerUser returned undefined!');
+                    document.getElementById('generalError').textContent = 'No response from server';
+                    showToast('No response from registration service', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>Create Account</span>';
+                    return;
+                }
+                
                 if (result.success) {
+                    console.log('✅ Registration successful');
                     showToast('Registration successful! Redirecting to login...', 'success');
                     setTimeout(() => {
                         window.location.href = 'login.html';
                     }, 2000);
                 } else {
+                    console.warn('⚠️ Registration failed:', result.message);
                     document.getElementById('generalError').textContent = result.message || 'Registration failed';
                     showToast(result.message || 'Registration failed', 'error');
                 }
             } catch (error) {
+                console.error('❌ REGISTRATION ERROR (form handler):');
+                console.error('   Message:', error.message);
+                console.error('   Stack:', error.stack);
+                console.error('   Full Error:', error);
                 document.getElementById('generalError').textContent = 'An error occurred. Please try again.';
-                showToast('Network error. Please check backend connection.', 'error');
+                showToast(`Network error: ${error.message || 'Please check backend connection'}`, 'error');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<span>Create Account</span>';

@@ -166,7 +166,7 @@ const orderController = {
         });
       }
 
-      const validStatuses = ['Pending', 'Approved', 'Shipped', 'Delivered', 'Cancelled'];
+      const validStatuses = ['Pending', 'Approved', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
@@ -182,11 +182,28 @@ const orderController = {
         });
       }
 
-      // Only admin or farmer with products in order can update
-      if (req.user.role !== 'admin' && order.buyer_id !== req.user.id) {
+      // Check access:
+      // - Admin can update any order
+      // - Buyer can only update their own orders
+      // - Farmer can only update orders containing their products
+      if (req.user.role === 'admin') {
+        // Admin can update any order
+      } else if (req.user.role === 'buyer' && order.buyer_id === req.user.id) {
+        // Buyer can update their own orders
+      } else if (req.user.role === 'farmer') {
+        // Farmer can update orders with their products
+        const farmerOrders = OrderModel.getByFarmerId(req.user.id);
+        const hasAccess = farmerOrders.some(o => o.id === parseInt(req.params.id));
+        if (!hasAccess) {
+          return res.status(403).json({
+            success: false,
+            message: 'You do not have permission to update this order'
+          });
+        }
+      } else {
         return res.status(403).json({
           success: false,
-          message: 'You cannot update this order'
+          message: 'You do not have permission to update this order'
         });
       }
 

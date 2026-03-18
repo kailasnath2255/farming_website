@@ -264,8 +264,7 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
-    <script src="frontend-config.js"></script>
-    <script src="frontend-config.js"></script>
+    <script src="frontend-config.js?v=20260317-001"></script>
     <script src="js/script.js"></script>
     <script>
         // Core initialization
@@ -274,250 +273,426 @@
             document.documentElement.setAttribute('data-theme', theme);
         }
 
-        // Theme toggle setup
-        document.addEventListener('DOMContentLoaded', function() {
+        // Initialize farmer dashboard
+        async function initFarmerDashboard() {
             loadTheme();
-            if (document.getElementById('themeToggle')) {
-                document.getElementById('themeToggle').addEventListener('click', function() {
+            redirectIfNotLoggedIn();
+            const currentUser = sessionStorage.getItem('currentUser') ? JSON.parse(sessionStorage.getItem('currentUser')) : null;
+            if (currentUser && document.getElementById('farmerName')) {
+                document.getElementById('farmerName').textContent = currentUser.name;
+            }
+            
+            // Setup theme toggle
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
                     const currentTheme = document.documentElement.getAttribute('data-theme');
                     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
                     document.documentElement.setAttribute('data-theme', newTheme);
                     localStorage.setItem('theme', newTheme);
                 });
             }
-        });
-
-        // Initialize farmer dashboard
-        function initFarmerDashboard() {
-            redirectIfNotLoggedIn();
-            const currentUser = sessionStorage.getItem('currentUser') ? JSON.parse(sessionStorage.getItem('currentUser')) : null;
-            if (currentUser && document.getElementById('farmerName')) {
-                document.getElementById('farmerName').textContent = currentUser.name;
-            }
-            loadFarmerDashboard();
-        }
-
-        function loadFarmerDashboard() {
-            updateFarmerStats();
-            renderFarmerProducts();
-        }
-
-        function updateFarmerStats() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
-
-            const myProducts = products.filter(p => p.farmerId === currentUser.id);
-            const myOrders = orders.filter(o => o.farmerId === currentUser.id);
-
-            const totalRevenue = myOrders.reduce((sum, order) => {
-                if (order.status === 'delivered') {
-                    return sum + (order.total || 0);
-                }
-                return sum;
-            }, 0);
-
-            // Calculate average rating
-            const allReviews = myProducts.flatMap(p => p.reviews || []);
-            const avgRating = allReviews.length > 0 
-                ? (allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length).toFixed(1)
-                : 0;
-
-            // Calculate pending and completed orders
-            const pendingOrders = myOrders.filter(o => o.status === 'pending').length;
-            const completedOrders = myOrders.filter(o => o.status === 'delivered').length;
-
-            // Find top product
-            const productSales = {};
-            myOrders.forEach(order => {
-                order.products?.forEach(item => {
-                    productSales[item.productId] = (productSales[item.productId] || 0) + item.quantity;
-                });
-            });
-            const topProductId = Object.keys(productSales).reduce((a, b) => 
-                (productSales[a] > productSales[b]) ? a : b, null);
-            const topProductName = topProductId ? products.find(p => p.id === topProductId)?.name : 'N/A';
-
-            // Calculate monthly revenue (this month)
-            const now = new Date();
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
-            const monthlyRevenue = myOrders.reduce((sum, order) => {
-                const orderDate = new Date(order.createdAt);
-                if (orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear && order.status === 'delivered') {
-                    return sum + (order.total || 0);
-                }
-                return sum;
-            }, 0);
-
-            // Update UI
-            document.getElementById('totalProducts').textContent = myProducts.length;
-            document.getElementById('totalOrders').textContent = myOrders.length;
-            document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2);
-            document.getElementById('avgRating').textContent = avgRating;
             
-            // Update analytics cards
-            document.getElementById('pendingOrders').textContent = pendingOrders;
-            document.getElementById('completedOrders').textContent = completedOrders;
-            document.getElementById('topProduct').textContent = topProductName;
-            document.getElementById('monthlyRevenue').textContent = '$' + monthlyRevenue.toFixed(2);
+            await loadFarmerDashboard();
         }
 
-        function renderFarmerProducts() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            const myProducts = products.filter(p => p.farmerId === currentUser.id);
+        async function loadFarmerDashboard() {
+            await updateFarmerStats();
+            await renderFarmerProducts();
+        }
 
-            const grid = document.getElementById('productsGrid');
-            if (myProducts.length === 0) {
-                grid.innerHTML = '<p class="empty-message">No products yet. Add your first product!</p>';
+        async function updateFarmerStats() {
+            try {
+                const currentUserData = sessionStorage.getItem('currentUser');
+                const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+                if (!currentUser) {
+                    console.error('❌ No currentUser in sessionStorage');
+                    return;
+                }
+                
+                const userId = Number(currentUser.id);
+                if (!userId || isNaN(userId)) {
+                    console.error('❌ Invalid user ID:', currentUser.id);
+                    return;
+                }
+                
+                const allProducts = await getProducts();
+                const allOrders = await getOrders();
+                
+                const myProducts = (allProducts || []).filter(p => p && Number(p.farmer_id) === userId);
+                const myOrders = (allOrders || []).filter(o => o && Number(o.farmer_id) === userId);
+
+                const totalRevenue = myOrders.reduce((sum, order) => {
+                    if (order.status === 'Delivered' || order.status === 'delivered') {
+                        return sum + (order.total || 0);
+                    }
+                    return sum;
+                }, 0);
+
+                // Calculate average rating
+                const allReviews = myProducts.flatMap(p => p.reviews || []);
+                const avgRating = allReviews.length > 0 
+                    ? (allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length).toFixed(1)
+                    : 0;
+
+                // Calculate pending and completed orders
+                const pendingOrders = myOrders.filter(o => o.status === 'Pending' || o.status === 'pending').length;
+                const completedOrders = myOrders.filter(o => o.status === 'Delivered' || o.status === 'delivered').length;
+
+                // Find top product
+                const productSales = {};
+                myOrders.forEach(order => {
+                    order.items?.forEach(item => {
+                        productSales[item.product_id] = (productSales[item.product_id] || 0) + item.quantity;
+                    });
+                });
+                const topProductId = Object.keys(productSales).reduce((a, b) => 
+                    (productSales[a] > productSales[b]) ? a : b, null);
+                const topProductName = topProductId
+                    ? (allProducts || []).find(p => p && p.id == topProductId)?.name
+                    : 'N/A';
+
+                // Calculate monthly revenue (this month)
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+                const monthlyRevenue = myOrders.reduce((sum, order) => {
+                    const orderDate = new Date(order.created_at);
+                    if (orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear && (order.status === 'Delivered' || order.status === 'delivered')) {
+                        return sum + (order.total || 0);
+                    }
+                    return sum;
+                }, 0);
+
+                // Update UI
+                document.getElementById('totalProducts').textContent = myProducts.length;
+                document.getElementById('totalOrders').textContent = myOrders.length;
+                document.getElementById('totalRevenue').textContent = '$' + totalRevenue.toFixed(2);
+                document.getElementById('avgRating').textContent = avgRating;
+                
+                // Update analytics cards
+                document.getElementById('pendingOrders').textContent = pendingOrders;
+                document.getElementById('completedOrders').textContent = completedOrders;
+                document.getElementById('topProduct').textContent = topProductName;
+                document.getElementById('monthlyRevenue').textContent = '$' + monthlyRevenue.toFixed(2);
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        async function renderFarmerProducts() {
+            try {
+                const currentUserData = sessionStorage.getItem('currentUser');
+                console.log('🔍 Raw sessionStorage currentUser:', currentUserData);
+                
+                const currentUser = currentUserData ? JSON.parse(currentUserData) : null;
+                if (!currentUser) {
+                    console.error('❌ No currentUser in sessionStorage!');
+                    return;
+                }
+                
+                // Ensure userId is a number
+                const userId = Number(currentUser.id);
+                console.log('👤 Current user ID:', userId, 'Type:', typeof userId, 'Original ID:', currentUser.id);
+                
+                if (!userId || isNaN(userId)) {
+                    console.error('❌ Invalid user ID!', currentUser.id);
+                    return;
+                }
+                
+                try {
+                    const products = await getProducts();
+                    console.log('📦 All products from API:', products);
+                    console.log('📦 Product count:', products?.length || 0);
+                    
+                    if (!products || !Array.isArray(products)) {
+                        console.error('❌ Invalid products response:', products);
+                        document.getElementById('productsGrid').innerHTML = '<p class="empty-message">Error loading products.</p>';
+                        return;
+                    }
+                    
+                    // Filter and debug each product
+                    const myProducts = products.filter(p => {
+                        if (!p) {
+                            console.warn('⚠️ Null product in array');
+                            return false;
+                        }
+                        
+                        const productFarmerId = Number(p.farmer_id);
+                        const matches = productFarmerId === userId;
+                        
+                        console.log(`📌 Product ID ${p.id}: "${p.name}" - farmer_id: ${p.farmer_id} (${typeof p.farmer_id}) → ${productFarmerId} | Expected: ${userId} | Matches: ${matches}`);
+                        
+                        return matches;
+                    });
+                    
+                    console.log('✅ Found', myProducts.length, 'products for farmer ID', userId);
+
+                    const grid = document.getElementById('productsGrid');
+                    if (myProducts.length === 0) {
+                        console.log('📭 No products found - showing empty message');
+                        grid.innerHTML = '<p class="empty-message">No products yet. Add your first product!</p>';
+                        return;
+                    }
+
+                    grid.innerHTML = myProducts.map(product => `
+                        <div class="product-card">
+                            <div class="product-image">
+                                <img src="${product.image}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/250x250?text=No+Image'">
+                            </div>
+                            <div class="product-info">
+                                <h3>${product.name}</h3>
+                                <p class="category">${product.category}</p>
+                                <p class="description">${product.description || 'No description'}</p>
+                                <div class="product-price">$${product.price.toFixed(2)}</div>
+                                <div class="product-actions">
+                                    <button class="btn btn-sm btn-secondary" onclick="editProduct('${product.id}')">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="handleDeleteProduct('${product.id}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    console.log('✨ Products rendered successfully');
+                } catch (error) {
+                    console.error('❌ Error in renderFarmerProducts try block:', error);
+                    document.getElementById('productsGrid').innerHTML = '<p class="empty-message">Error loading products. Please try again.</p>';
+                }
+            } catch (error) {
+                console.error('❌ Error in renderFarmerProducts outer block:', error);
+                document.getElementById('productsGrid').innerHTML = '<p class="empty-message">Error loading products.</p>';
+            }
+        }
+
+        async function editProduct(productId) {
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+            if (!currentUser) {
+                showToast('Please log in first', 'error');
                 return;
             }
+            
+            try {
+                const products = await getProducts();
+                const product = products.find(p => p && String(p.id) === String(productId));
 
-            grid.innerHTML = myProducts.map(product => `
-                <div class="product-card">
-                    <div class="product-image">
-                        <img src="${product.image}" alt="${product.name}" onerror="this.src='https://via.placeholder.com/250x250?text=No+Image'">
-                    </div>
-                    <div class="product-info">
-                        <h3>${product.name}</h3>
-                        <p class="category">${product.category}</p>
-                        <p class="description">${product.description || 'No description'}</p>
-                        <div class="product-price">$${product.price.toFixed(2)}</div>
-                        <div class="product-actions">
-                            <button class="btn btn-sm btn-secondary" onclick="editProduct('${product.id}')">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteProduct('${product.id}')">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+                if (!product) {
+                    showToast('Product not found', 'error');
+                    return;
+                }
+
+                // Verify this product belongs to the current farmer
+                if (String(product.farmer_id) !== String(currentUser.id)) {
+                    showToast('You can only edit your own products', 'error');
+                    return;
+                }
+
+                document.getElementById('editProductId').value = product.id;
+                document.getElementById('editProductName').value = product.name;
+                document.getElementById('editProductPrice').value = product.price;
+                document.getElementById('editProductCategory').value = product.category;
+                document.getElementById('editProductImage').value = product.image;
+                document.getElementById('editProductDescription').value = product.description || '';
+
+                openModal('editProductModal');
+            } catch (error) {
+                console.error('Error loading product:', error);
+                showToast('Failed to load product details', 'error');
+            }
         }
 
-        function editProduct(productId) {
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            const product = products.find(p => p.id === productId);
-
-            if (!product) return;
-
-            document.getElementById('editProductId').value = product.id;
-            document.getElementById('editProductName').value = product.name;
-            document.getElementById('editProductPrice').value = product.price;
-            document.getElementById('editProductCategory').value = product.category;
-            document.getElementById('editProductImage').value = product.image;
-            document.getElementById('editProductDescription').value = product.description || '';
-
-            openModal('editProductModal');
-        }
-
-        function deleteProduct(productId) {
+        async function handleDeleteProduct(productId) {
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+            if (!currentUser) {
+                showToast('Please log in first', 'error');
+                return;
+            }
             if (!confirm('Are you sure you want to delete this product?')) return;
 
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            const filtered = products.filter(p => p.id !== productId);
-            localStorage.setItem('products', JSON.stringify(filtered));
+            try {
+                // Call backend API to delete product
+                await deleteProduct(productId);
 
-            showToast('Product deleted successfully', 'success');
-            renderFarmerProducts();
-            updateFarmerStats();
+                showToast('Product deleted successfully', 'success');
+                await renderFarmerProducts();
+                await updateFarmerStats();
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                showToast('Failed to delete product', 'error');
+            }
         }
 
         // Add/Edit product forms
-        document.getElementById('addProductForm').addEventListener('submit', function(e) {
+        document.getElementById('addProductForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-
-            const newProduct = {
-                id: 'prod_' + Date.now(),
-                name: document.getElementById('productName').value,
-                price: parseFloat(document.getElementById('productPrice').value),
-                category: document.getElementById('productCategory').value,
-                image: document.getElementById('productImage').value,
-                description: document.getElementById('productDescription').value,
-                farmerId: currentUser.id,
-                createdAt: new Date().toISOString()
-            };
-
-            products.push(newProduct);
-            localStorage.setItem('products', JSON.stringify(products));
-
-            showToast('Product added successfully!', 'success');
-            this.reset();
-            updateFarmerStats();
-            renderFarmerProducts();
-        });
-
-        document.getElementById('editProductForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            const productId = document.getElementById('editProductId').value;
-            const productIndex = products.findIndex(p => p.id === productId);
-
-            if (productIndex !== -1) {
-                products[productIndex].name = document.getElementById('editProductName').value;
-                products[productIndex].price = parseFloat(document.getElementById('editProductPrice').value);
-                products[productIndex].category = document.getElementById('editProductCategory').value;
-                products[productIndex].image = document.getElementById('editProductImage').value;
-                products[productIndex].description = document.getElementById('editProductDescription').value;
-
-                localStorage.setItem('products', JSON.stringify(products));
-                showToast('Product updated successfully!', 'success');
-                closeModal('editProductModal');
-                renderFarmerProducts();
-                updateFarmerStats();
-            }
-        });
-
-        // Load orders
-        function renderFarmerOrders() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
-            const myOrders = orders.filter(o => o.farmerId === currentUser.id);
-
-            const list = document.getElementById('ordersList');
-            if (myOrders.length === 0) {
-                list.innerHTML = '<p class="empty-message">No orders yet</p>';
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+            
+            // Check if user is logged in
+            if (!currentUser) {
+                showToast('Please log in first', 'error');
                 return;
             }
+            
+            console.log('🚀 ADD PRODUCT FORM SUBMITTED');
+            console.log('👤 Current user:', currentUser);
+            
+            try {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span>Adding...</span>';
 
-            list.innerHTML = myOrders.map(order => `
-                <div class="order-card">
-                    <div class="order-header">
-                        <h3>Order #${order.id.substring(0, 8)}</h3>
-                        <span class="status-badge status-${order.status}">${order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span>
+                // Prepare product data
+                const productData = {
+                    name: document.getElementById('productName').value,
+                    price: parseFloat(document.getElementById('productPrice').value),
+                    category: document.getElementById('productCategory').value,
+                    image: document.getElementById('productImage').value,
+                    description: document.getElementById('productDescription').value
+                };
+                
+                console.log('📝 Product data to send:', productData);
+
+                // Call backend API
+                const result = await createProduct(productData);
+                
+                console.log('✅ Backend response:', result);
+                console.log('📊 Returned product farmer_id:', result?.farmer_id);
+                console.log('📊 Expected farmer_id:', currentUser.id);
+
+                showToast('Product added successfully!', 'success');
+                this.reset();
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Add Product</span>';
+                
+                console.log('🔄 Calling renderFarmerProducts...');
+                await renderFarmerProducts();
+                
+                console.log('🔄 Calling updateFarmerStats...');
+                await updateFarmerStats();
+                
+                console.log('✨ Add product flow completed');
+            } catch (error) {
+                console.error('❌ Error adding product:', error);
+                showToast(error?.message || 'Failed to add product', 'error');
+                const submitBtn = this.querySelector('button[type="submit"]');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Add Product</span>';
+            }
+        });
+
+        document.getElementById('editProductForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            try {
+                const productId = document.getElementById('editProductId').value;
+                const updatedData = {
+                    name: document.getElementById('editProductName').value,
+                    price: parseFloat(document.getElementById('editProductPrice').value),
+                    category: document.getElementById('editProductCategory').value,
+                    image: document.getElementById('editProductImage').value,
+                    description: document.getElementById('editProductDescription').value
+                };
+
+                // Call backend API to update product
+                await updateProduct(productId, updatedData);
+
+                showToast('Product updated successfully!', 'success');
+                closeModal('editProductModal');
+                await renderFarmerProducts();
+                await updateFarmerStats();
+            } catch (error) {
+                console.error('Error updating product:', error);
+                showToast('Failed to update product', 'error');
+            }
+        });
+
+        // Load orders from backend
+        async function renderFarmerOrders() {
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+            if (!currentUser) return;
+
+            try {
+                console.log('📦 Loading farmer orders for farmer ID:', currentUser.id);
+                
+                // Fetch orders from backend (filtered by farmer_id)
+                const farmerOrders = await getFarmerOrders();
+                console.log('📦 Farmer orders received:', farmerOrders);
+                
+                const list = document.getElementById('ordersList');
+                if (!farmerOrders || farmerOrders.length === 0) {
+                    list.innerHTML = '<p class="empty-message">No orders yet</p>';
+                    return;
+                }
+
+                list.innerHTML = farmerOrders.map(order => {
+                    const itemsCount = order.items?.length || 0;
+                    const statusClass = `status-${(order.status || 'pending').toLowerCase()}`;
+                    
+                    return `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <div class="order-title">
+                                <h3>Order #${order.id}</h3>
+                                <span class="order-date">${new Date(order.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <span class="status-badge ${statusClass}">${order.status || 'Pending'}</span>
+                        </div>
+                        <div class="order-details">
+                            <p><strong>Buyer ID:</strong> ${order.buyer_id}</p>
+                            <p><strong>Total:</strong> $${(order.total || 0).toFixed(2)}</p>
+                            <p><strong>Items:</strong> ${itemsCount} product(s)</p>
+                            <p><strong>Payment Method:</strong> ${order.payment_method || 'N/A'}</p>
+                        </div>
+                        ${order.items && order.items.length > 0 ? `
+                        <div class="order-items">
+                            <strong>Products:</strong>
+                            <ul>
+                                ${order.items.map(item => `
+                                    <li>${item.product_name || 'Product'} - Qty: ${item.quantity} @ $${(item.price || 0).toFixed(2)}</li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                        <div class="order-status-update">
+                            <label>Update Status:</label>
+                            <select onchange="updateOrder(${order.id}, this.value)" class="status-select">
+                                <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                                <option value="Approved" ${order.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                                <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                                <option value="Shipped" ${order.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+                                <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                                <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="order-details">
-                        <p><strong>Buyer:</strong> ${order.buyerName}</p>
-                        <p><strong>Total:</strong> $${order.total.toFixed(2)}</p>
-                        <p><strong>Items:</strong> ${order.items} unit(s)</p>
-                    </div>
-                    <div class="order-status-update">
-                        <select onchange="updateOrderStatus('${order.id}', this.value)" class="status-select">
-                            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
-                            <option value="approved" ${order.status === 'approved' ? 'selected' : ''}>Approved</option>
-                            <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
-                        </select>
-                    </div>
-                </div>
-            `).join('');
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading farmer orders:', error);
+                showToast('Failed to load orders', 'error');
+            }
         }
 
-        function updateOrderStatus(orderId, status) {
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
-            const orderIndex = orders.findIndex(o => o.id === orderId);
-
-            if (orderIndex !== -1) {
-                orders[orderIndex].status = status;
-                localStorage.setItem('orders', JSON.stringify(orders));
-                showToast('Order status updated!', 'success');
-                renderFarmerOrders();
-                updateFarmerStats();
+        async function updateOrder(orderId, newStatus) {
+            if (!orderId || !newStatus) {
+                console.error('Invalid order ID or status');
+                return;
+            }
+            
+            try {
+                console.log('📝 Updating order', orderId, 'to status:', newStatus);
+                await updateOrderStatus(orderId, newStatus);
+                showToast('Order status updated successfully!', 'success');
+                await renderFarmerOrders();
+                await updateFarmerStats();
+            } catch (error) {
+                console.error('Error updating order:', error);
+                showToast('Failed to update order status', 'error');
             }
         }
 

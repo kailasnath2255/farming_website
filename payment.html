@@ -241,7 +241,7 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
-    <script src="frontend-config.js"></script>
+    <script src="frontend-config.js?v=20260317-001"></script>
     <script src="js/script.js"></script>
     <script>
         // Core initialization
@@ -264,7 +264,7 @@
         });
 
         // Initialize payment page
-        function initPaymentPage() {
+        async function initPaymentPage() {
             redirectIfNotLoggedIn();
             const cart = JSON.parse(sessionStorage.getItem('cart')) || [];
             const discountInfo = JSON.parse(sessionStorage.getItem('discountInfo')) || { code: '', amount: 0 };
@@ -274,49 +274,54 @@
                 return;
             }
 
-            renderOrderItems(cart, discountInfo);
+            await renderOrderItems(cart, discountInfo);
             setupPaymentTabs();
             setupCardNumberFormatting();
             setupExpiryFormatting();
         }
 
-        function renderOrderItems(cart, discountInfo) {
-            const products = JSON.parse(localStorage.getItem('products')) || [];
-            let subtotal = 0;
+        async function renderOrderItems(cart, discountInfo) {
+            try {
+                const allProducts = await getProducts();
+                let subtotal = 0;
 
-            const itemsHtml = cart.map(item => {
-                const product = products.find(p => p.id === item.productId);
-                const itemTotal = item.price * item.quantity;
-                subtotal += itemTotal;
+                const itemsHtml = cart.map(item => {
+                    const product = allProducts.find(p => p.id === item.productId);
+                    const itemTotal = item.price * item.quantity;
+                    subtotal += itemTotal;
 
-                return `
-                    <div class="order-item">
-                        <div class="item-image">
-                            <img src="${product ? product.image : 'https://via.placeholder.com/60x60'}" alt="${item.productName}">
+                    return `
+                        <div class="order-item">
+                            <div class="item-image">
+                                <img src="${product ? product.image : 'https://via.placeholder.com/60x60'}" alt="${item.productName}">
+                            </div>
+                            <div class="item-details">
+                                <h4>${item.productName}</h4>
+                                <p>${item.quantity}x</p>
+                            </div>
+                            <div class="item-price">
+                                $${itemTotal.toFixed(2)}
+                            </div>
                         </div>
-                        <div class="item-details">
-                            <h4>${item.productName}</h4>
-                            <p>${item.quantity}x</p>
-                        </div>
-                        <div class="item-price">
-                            $${itemTotal.toFixed(2)}
-                        </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
 
-            document.getElementById('orderItemsList').innerHTML = itemsHtml;
+                document.getElementById('orderItemsList').innerHTML = itemsHtml;
 
-            const discount = discountInfo.amount || 0;
-            const finalAmount = subtotal - discount;
+                const discount = discountInfo.amount || 0;
+                const finalAmount = subtotal - discount;
 
-            document.getElementById('summarySubtotal').textContent = '$' + subtotal.toFixed(2);
-            document.getElementById('summaryDiscount').textContent = '-$' + discount.toFixed(2);
-            document.getElementById('summaryTotal').textContent = '$' + finalAmount.toFixed(2);
-            document.getElementById('payAmount').textContent = '$' + finalAmount.toFixed(2);
-            document.getElementById('codAmount').textContent = '$' + finalAmount.toFixed(2);
+                document.getElementById('summarySubtotal').textContent = '$' + subtotal.toFixed(2);
+                document.getElementById('summaryDiscount').textContent = '-$' + discount.toFixed(2);
+                document.getElementById('summaryTotal').textContent = '$' + finalAmount.toFixed(2);
+                document.getElementById('payAmount').textContent = '$' + finalAmount.toFixed(2);
+                document.getElementById('codAmount').textContent = '$' + finalAmount.toFixed(2);
 
-            window.paymentAmount = finalAmount;
+                window.paymentAmount = finalAmount;
+            } catch (error) {
+                console.error('Error rendering order items:', error);
+                showToast('Failed to load order details', 'error');
+            }
         }
 
         function setupPaymentTabs() {
@@ -462,62 +467,33 @@
         }
 
         function completePayment(method, details) {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const cart = JSON.parse(localStorage.getItem('cart')) || [];
-            const discountInfo = JSON.parse(localStorage.getItem('discountInfo')) || { code: '', amount: 0 };
-            const products = JSON.parse(localStorage.getItem('products')) || [];
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+            const cart = JSON.parse(sessionStorage.getItem('cart')) || [];
 
-            // Calculate amounts
-            let subtotal = 0;
-            const orderProducts = cart.map(item => {
-                const product = products.find(p => p.id === item.productId);
-                const itemTotal = item.price * item.quantity;
-                subtotal += itemTotal;
-                return {
-                    productId: item.productId,
-                    productName: item.productName,
-                    quantity: item.quantity,
-                    price: item.price,
-                    total: itemTotal
-                };
-            });
+            // Call backend API to create order
+            const orderProducts = cart.map(item => ({
+                product_id: parseInt(item.productId),
+                quantity: parseInt(item.quantity)
+            }));
 
-            const discountAmount = discountInfo.amount || 0;
-            const finalAmount = subtotal - discountAmount;
-
-            // Create order
-            const orders = JSON.parse(localStorage.getItem('orders')) || [];
-            const newOrder = {
-                id: 'ord_' + Date.now(),
-                buyerId: currentUser.id,
-                buyerName: currentUser.name,
+            createOrder({
                 products: orderProducts,
-                subtotal,
-                discountCode: discountInfo.code,
-                discountAmount,
-                totalAmount: finalAmount,
-                paymentMethod: details.method,
-                paymentStatus: 'Paid',
-                orderStatus: 'Pending Approval',
-                trackingStep: 1,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-
-            orders.push(newOrder);
-            localStorage.setItem('orders', JSON.stringify(orders));
-
-            // Clear cart and discount
-            localStorage.removeItem('cart');
-            localStorage.removeItem('discountInfo');
-
-            // Show success modal
-            document.getElementById('successOrderId').textContent = newOrder.id.substring(0, 12);
-            document.getElementById('successAmount').textContent = '$' + finalAmount.toFixed(2);
-            openModal('paymentSuccessModal');
-
-            // Create notification
-            createNotification(currentUser.id, `Payment successful! Order #${newOrder.id.substring(0, 8)} created.`);
+                paymentMethod: details.method || 'credit_card'
+            }).then(response => {
+                // Clear cart
+                sessionStorage.removeItem('cart');
+                sessionStorage.removeItem('cart');
+                
+                // Show success
+                document.getElementById('successOrderId').textContent = response.data?.id || 'Unknown';
+                document.getElementById('successAmount').textContent = '$' + (response.data?.total || 0).toFixed(2);
+                openModal('paymentSuccessModal');
+                showToast('Order placed successfully!', 'success');
+            }).catch(error => {
+                console.error('Order creation failed:', error);
+                showPaymentFailure();
+                showToast('Failed to create order: ' + error.message, 'error');
+            });
         }
 
         function showPaymentFailure() {
@@ -525,14 +501,16 @@
         }
 
         function goToDashboard() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (currentUser.role === 'buyer') {
+            const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
+            if (currentUser && currentUser.role === 'buyer') {
                 window.location.href = 'buyer.html?section=orders';
+            } else {
+                window.location.href = 'index.html';
             }
         }
 
         function createNotification(userId, message) {
-            const notifications = JSON.parse(localStorage.getItem('notifications')) || [];
+            const notifications = JSON.parse(sessionStorage.getItem('notifications')) || [];
             notifications.push({
                 id: 'notif_' + Date.now(),
                 userId,
@@ -540,7 +518,7 @@
                 read: false,
                 createdAt: new Date().toISOString()
             });
-            localStorage.setItem('notifications', JSON.stringify(notifications));
+            sessionStorage.setItem('notifications', JSON.stringify(notifications));
         }
 
         // Initialize

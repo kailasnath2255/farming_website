@@ -1,7 +1,16 @@
 // Service Worker for Farmer Market PWA
-const CACHE_NAME = 'farmer-market-v1';
+// Version bumped to force cache invalidation
+const CACHE_NAME = 'farmer-market-v' + new Date().getTime();
 const urlsToCache = [
-    '/',
+    '/css/style.css',
+    '/js/script.js',
+    '/manifest.json',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+    'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap'
+];
+
+// List of HTML files that should NEVER be cached
+const HTML_FILES = [
     '/index.html',
     '/login.html',
     '/register.html',
@@ -11,12 +20,7 @@ const urlsToCache = [
     '/payment.html',
     '/invoice.html',
     '/profile.html',
-    '/wishlist.html',
-    '/css/style.css',
-    '/js/script.js',
-    '/manifest.json',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-    'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap'
+    '/wishlist.html'
 ];
 
 // Service Worker Install Event
@@ -71,6 +75,28 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Skip API calls - always fetch fresh
+    if (event.request.url.includes('/api/')) {
+        return event.respondWith(fetch(event.request));
+    }
+
+    // For HTML files: Network first, fall back to cache
+    if (HTML_FILES.some(html => event.request.url.includes(html))) {
+        return event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    if (!response || response.status !== 200) {
+                        return response;
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    return caches.match(event.request);
+                })
+        );
+    }
+
+    // For other files (CSS, JS, images): Cache first, fall back to network
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
